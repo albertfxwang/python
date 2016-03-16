@@ -896,7 +896,8 @@ def crossmatch(ralist,declist,
             sys.stdout.write("%s\r" % infostr)
             sys.stdout.flush()
 
-        rmatch             = np.sqrt( (np.cos(objdec)*(catdat[racol]-objra))**2.0 + (catdat[deccol]-objdec)**2.0 )
+        rmatch             = np.sqrt( (np.cos(np.deg2rad(objdec))*(catdat[racol]-objra))**2.0 +
+                                      (catdat[deccol]-objdec)**2.0 )
         objent             = np.where(rmatch == np.min(rmatch))[0]
         objids[rr]         = catdat[idcol][objent]
         ra_objids[rr]      = catdat[racol][objent]
@@ -908,7 +909,7 @@ def crossmatch(ralist,declist,
     if verbose: print ' - Returning ID, RA, Dec, r_match[arcsec] '
     return objids, ra_objids, dec_objids, rmatch_objids
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def crossmatch2cat(radeccat='/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catalog_candels-cdfs_v0.1.fits',
+def crossmatch2cat(radeccat='/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catalog_candels-cdfs_v0.2.fits',
                    idcol='ID',racol='RA',deccol='DEC',catext=1,
                    matchcat='skelton_goodss',
                    m_idcol='id',m_racol='ra',m_deccol='dec',m_catext=1,
@@ -936,7 +937,7 @@ def crossmatch2cat(radeccat='/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catal
 
     --- EXAMPLE OF USE ---
 
-    radeccat = '/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catalog_candels-cdfs_v0.1.fits'
+    radeccat = '/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catalog_candels-cdfs_v0.2.fits'
     matchcat = '/Users/kschmidt/work/catalogs/skelton/goodss_3dhst.v4.1.cats/Catalog/goodss_3dhst.v4.1.cat.FITS'
     id, ra, dec, rmacth = kbs.crossmatch2cat(radeccat,matchcat=matchcat,writetofile='./MUSEcdfs_cm2_3DHSTgoods',clobber=False)
 

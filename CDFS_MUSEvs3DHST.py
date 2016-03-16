@@ -245,7 +245,7 @@ def objinfo_CDFSobj(MUSEcat,zcut=[2.9-10.0],output_basename='./objectinfo_output
 
     --- EXAMPLE OF USE ---
     import CDFS_MUSEvs3DHST as cm3
-    MUSEcat = '/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catalog_candels-cdfs_v0.1.fits'
+    MUSEcat = '/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catalog_candels-cdfs_v0.2.fits'
     cm3.objinfo_CDFSobj(MUSEcat,zcut=[2.9,10.0],output_basename='./MUSECDFS_z2p9-10p0_cmtol1p0',crossmatchtol=1.0,clobber=True)
 
     cm3.objinfo_CDFSobj(MUSEcat,zcut=[2.9,10.0],output_basename='./MUSECDFS_z2p9-10p0_cmtol0p5',crossmatchtol=0.5,clobber=True)

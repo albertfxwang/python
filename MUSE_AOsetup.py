@@ -206,7 +206,7 @@ def search_GSPCv2p4(outputfile,ra,dec,search_radius,clobber=False,verbose=True):
     Nobj_GSPC     = len(GSPC_IDall)
     if verbose: print ' - Will find matches to the '+str(Nobj_GSPC)+' in \n   '+catalog
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    r_match  = np.sqrt( (np.cos(dec)*(GSPC_RAall-ra))**2.0 + (GSPC_Decall-dec)**2.0 )
+    r_match  = np.sqrt( (np.cos(np.rad2deg(dec))*(GSPC_RAall-ra))**2.0 + (GSPC_Decall-dec)**2.0 )
 
     goodmatch = np.where(r_match <= search_radius)[0]
     if len(goodmatch) > 0:
@@ -260,7 +260,7 @@ def search_CLASHcat(cluster,output='default',search_radius=0.08333,clobber=False
     else:
         outputfile = output
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    r_match  = np.sqrt( (np.cos(dec)*(CLASH_RAall-ra))**2.0 + (CLASH_Decall-dec)**2.0 )
+    r_match  = np.sqrt( (np.cos(np.deg2rad(dec))*(CLASH_RAall-ra))**2.0 + (CLASH_Decall-dec)**2.0 )
 
     goodmatch = np.where(r_match <= search_radius)[0]
     if len(goodmatch) > 0:
@@ -328,7 +328,7 @@ def search_ROMANcat(cluster,output='default',search_radius=0.08333,clobber=False
     else:
         outputfile = output
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    r_match  = np.sqrt( (np.cos(dec)*(ROMAN_RAall-ra))**2.0 + (ROMAN_Decall-dec)**2.0 )
+    r_match  = np.sqrt( (np.cos(np.deg2rad(dec))*(ROMAN_RAall-ra))**2.0 + (ROMAN_Decall-dec)**2.0 )
 
     goodmatch = np.where(r_match <= search_radius)[0]
     if len(goodmatch) > 0:
