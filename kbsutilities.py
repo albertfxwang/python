@@ -45,6 +45,10 @@ import commands
 import time
 import pyfits
 import os
+import glob
+#from wand.image import Image as wImage
+#from wand.color import Color as wColor
+from PyPDF2 import PdfFileReader, PdfFileMerger
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 #-------------------------------------------------------------------------------------------------------------
@@ -964,7 +968,7 @@ def crossmatch2cat(radeccat='/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catal
             fout.write('# crossmatched objects in '+radeccat+' to '+matchcat+'\n')
             fout.write('# ID ra dec   ID_match ra_match dec_match r_match_arcsec \n')
             for ii, objid in enumerate(objs_id):
-                objstr  = str("%20i"   % objid)          +'  '+\
+                objstr  = str("%20i"   % int(objid))     +'  '+\
                           str("%16.8f" % objs_ra[ii])    +'  '+\
                           str("%16.8f" % objs_dec[ii])   +'  '+\
                           str("%20i"   % id_match[ii])   +'  '+\
@@ -983,6 +987,57 @@ def crossmatch2cat(radeccat='/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catal
             outputfile = f2a.ascii2fits(asciifile,asciinames=True,skip_header=2,outpath=fitspath,verbose=verbose)
 
     return id_match, ra_match, dec_match, r_match
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def generate_mergedPDF(searchstring='./*.pdf',outputdocument='./allpdfs.pdf',verbose=True):
+    """
+    Genrate PDF containing all individual PDF plots found by globbing on provided search string
+
+    --- INPUT ---
+    searchstring    String used with glob to find files to merger
+    outputdocument  Name of document to store mergerd file in
+    verbose         Toggle verbosity
+
+    --- EXAMPLE OF USE ---
+
+    searchs = './spectraplots160325/*.pdf'
+    outdoc  = './spectraplots160325_allpdfs.pdf'
+    kbs.generate_mergedPDF(searchstring=searchs,outputdocument=outdoc)
+
+    """
+    pdf_files = glob.glob(searchstring)
+
+    if len(pdf_files) > 1:
+        if verbose: print ' - Found '+str(len(pdf_files))+' to merge ',
+        merger    = PdfFileMerger()
+
+        if verbose: print ' ... merging ',
+        for fname in pdf_files:
+            merger.append(PdfFileReader(fname, "rb"))
+
+        merger.write(outputdocument)
+        if verbose: print '   Worte output to '+outputdocument
+    else:
+        if verbose: print ' - Found less than 2 pdf files globbing for '+searchstring+' --> No output generated'
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def convert_pdf2png(pdffile,res=300,clobber=False,quality='75',resize='100%',verbose=True):
+    """
+    Converting a pdf image to png using command line conversion
+
+    --- EXAMPLE OF USE ---
+
+    kbs.convert_pdf2png('./spectraplots160325/10210079_3dhstSpecAndInfo.pdf')
+    """
+    output = pdffile.replace('.pdf','.png')
+    if os.path.isfile(output) and (clobber == False):
+        print ' WARNING: '+output+' exists and clobber=False so skipping '
+    else:
+        convertcmd = 'convert '+pdffile+' -quality '+quality+' '+output
+        cmdout = commands.getoutput(convertcmd)
+        if verbose and cmdout != '':
+            print '--> convert output:'
+            print cmdout
+
 #-------------------------------------------------------------------------------------------------------------
 #                                                  END
 #-------------------------------------------------------------------------------------------------------------

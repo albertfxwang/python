@@ -12,6 +12,8 @@ import manipulate_3DHSTdata as m3d
 import CDFS_MUSEvs3DHST as cm3
 import fits2ascii as f2a
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def extract_objectsinfo(MUSEidlist,cmfile='./MUSEcdfs_cm2_3DHSTgoods.fits',
                         crossmatchtol=0.1,output_basename='./objectinfo_output',clobber=False,
@@ -94,17 +96,23 @@ def extract_objectsinfo(MUSEidlist,cmfile='./MUSEcdfs_cm2_3DHSTgoods.fits',
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Nobj = len(MUSEidlist)
     if verbose: print ' - Looping over the '+str(Nobj)+' objects and extracting information'
-    for MUSEid in MUSEidlist:
-        objent = np.where(cmdat['ID'] == MUSEid)[0]
+    for mm, MUSEid in enumerate(MUSEidlist):
+        if verbose:
+            idno    = mm+1
+            infostr = ' - extract info for '+str(MUSEid)+'   ('+str(idno)+'/'+str(len(MUSEidlist))+')'
+            sys.stdout.write("%s\r" % infostr)
+            sys.stdout.flush()
+
+        objent = np.where(cmdat['ID'] == int(MUSEid))[0]
         if len(objent) == 0:
-            if verbose: print '   No match top MUSEid = '+str(MUSEid)
+            if verbose: print '   No match to MUSEid = '+str(MUSEid)
         else:
             if cmdat['r_match_arcsec'][objent] > crossmatchtol:
                 if verbose: print '   r_match ('+str(cmdat['r_match_arcsec'][objent])+\
                                   ') above crossmatch tolerance for MUSEid = '+str(MUSEid)
             else:
                 id_MUSE   = cmdat['id'][objent]
-                if id_MUSE != MUSEid: print ' ERROR ids dont mathc --> stopping ';pdb.set_trace()
+                if id_MUSE != int(MUSEid): print ' ERROR ids dont match --> stopping ';pdb.set_trace()
                 ra_MUSE   = cmdat['ra'][objent]
                 dec_MUSE  = cmdat['dec'][objent]
                 id_3DHST  = cmdat['id_match'][objent]
@@ -159,8 +167,12 @@ def extract_objectsinfo(MUSEidlist,cmfile='./MUSEcdfs_cm2_3DHSTgoods.fits',
         asciidat   = np.genfromtxt(asciifile,names=True,skip_header=1,comments='#')
         keys       = asciidat.dtype.names
         fitsformat = np.asarray(['D']*(len(keys)),dtype='5a')
+        fitsformat[np.asarray(keys) == 'id_MUSE'] = '10A' # 9 character string # 'J' #32 bit integer
+        fitsformat[np.asarray(keys) == 'id_3DHST'] = 'J' #32 bit integer
         fitsformat[np.asarray(keys) == 'specinfo'] = '200A'
         fitsformat[np.asarray(keys) == 'grism_id'] = '25A'
+        fitsformat[np.asarray(keys) == 'phot_id'] = 'J'
+
         outputfile = f2a.ascii2fits(asciifile,asciinames=True,skip_header=1,outpath=fitspath,
                                     fitsformat=fitsformat,verbose=verbose)
 
@@ -195,7 +207,22 @@ def objectsinfo_columnlist():
     'zinfo___grism_id',
     'zinfo___jh_mag',
     'zinfo___z_spec',
+    'zinfo___z_peak_phot',
+    'zinfo___z_phot_l95',
+    'zinfo___z_phot_l68',
+    'zinfo___z_phot_u68',
+    'zinfo___z_phot_u95',
+    'zinfo___z_max_grism',
+    'zinfo___z_peak_grism',
+    'zinfo___z_grism_l95',
+    'zinfo___z_grism_l68',
+    'zinfo___z_grism_u68',
+    'zinfo___z_grism_u95',
 #    'ELflux___grism_id',
+    'ELflux___s0',
+    'ELflux___s0_err',
+    'ELflux___s1',
+    'ELflux___s1_err',
     'ELflux___Lya_FLUX',
     'ELflux___Lya_FLUX_ERR',
     'ELflux___Lya_SCALE',
@@ -216,6 +243,31 @@ def objectsinfo_columnlist():
     'ELflux___OII_SCALE',
     'ELflux___OII_EQW',
     'ELflux___OII_EQW_ERR',
+    'ELflux___Hd_FLUX',
+    'ELflux___Hd_FLUX_ERR',
+    'ELflux___Hd_SCALE',
+    'ELflux___Hd_EQW',
+    'ELflux___Hd_EQW_ERR',
+    'ELflux___Hg_FLUX',
+    'ELflux___Hg_FLUX_ERR',
+    'ELflux___Hg_SCALE',
+    'ELflux___Hg_EQW',
+    'ELflux___Hg_EQW_ERR',
+    'ELflux___OIIIx_FLUX',
+    'ELflux___OIIIx_FLUX_ERR',
+    'ELflux___OIIIx_SCALE',
+    'ELflux___OIIIx_EQW',
+    'ELflux___OIIIx_EQW_ERR',
+    'ELflux___HeII_FLUX',
+    'ELflux___HeII_FLUX_ERR',
+    'ELflux___HeII_SCALE',
+    'ELflux___HeII_EQW',
+    'ELflux___HeII_EQW_ERR',
+    'ELflux___Hb_FLUX',
+    'ELflux___Hb_FLUX_ERR',
+    'ELflux___Hb_SCALE',
+    'ELflux___Hb_EQW',
+    'ELflux___Hb_EQW_ERR',
     'ELflux___OIII_FLUX',
     'ELflux___OIII_FLUX_ERR',
     'ELflux___OIII_SCALE',
@@ -225,7 +277,47 @@ def objectsinfo_columnlist():
     'ELflux___Ha_FLUX_ERR',
     'ELflux___Ha_SCALE',
     'ELflux___Ha_EQW',
-    'ELflux___Ha_EQW_ERR']
+    'ELflux___Ha_EQW_ERR',
+    'ELflux___SII_FLUX',
+    'ELflux___SII_FLUX_ERR',
+    'ELflux___SII_SCALE',
+    'ELflux___SII_EQW',
+    'ELflux___SII_EQW_ERR',
+    'ELflux___SIII_FLUX',
+    'ELflux___SIII_FLUX_ERR',
+    'ELflux___SIII_SCALE',
+    'ELflux___SIII_EQW',
+    'ELflux___SIII_EQW_ERR',
+    'ELflux___HeI_FLUX',
+    'ELflux___HeI_FLUX_ERR',
+    'ELflux___HeI_SCALE',
+    'ELflux___HeI_EQW',
+    'ELflux___HeI_EQW_ERR',
+    'ELflux___HeIb_FLUX',
+    'ELflux___HeIb_FLUX_ERR',
+    'ELflux___HeIb_SCALE',
+    'ELflux___HeIb_EQW',
+    'ELflux___HeIb_EQW_ERR',
+    'ELflux___NeIII_FLUX',
+    'ELflux___NeIII_FLUX_ERR',
+    'ELflux___NeIII_SCALE',
+    'ELflux___NeIII_EQW',
+    'ELflux___NeIII_EQW_ERR',
+    'ELflux___NeV_FLUX',
+    'ELflux___NeV_FLUX_ERR',
+    'ELflux___NeV_SCALE',
+    'ELflux___NeV_EQW',
+    'ELflux___NeV_EQW_ERR',
+    'ELflux___NeVI_FLUX',
+    'ELflux___NeVI_FLUX_ERR',
+    'ELflux___NeVI_SCALE',
+    'ELflux___NeVI_EQW',
+    'ELflux___NeVI_EQW_ERR',
+    'ELflux___OI_FLUX',
+    'ELflux___OI_FLUX_ERR',
+    'ELflux___OI_SCALE',
+    'ELflux___OI_EQW',
+    'ELflux___OI_EQW_ERR']
     return columnlist
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def objinfo_CDFSobj(MUSEcat,zcut=[2.9-10.0],output_basename='./objectinfo_output',cmfile=False,crossmatchtol=0.1
@@ -281,7 +373,8 @@ def objinfo_CDFSobj(MUSEcat,zcut=[2.9-10.0],output_basename='./objectinfo_output
 
         if verbose: print ' - Extracting 3D-HST data for the objects'
         cm3.extract_objectsinfo(goodids,printcolnames=False,clobber=clobber,verbose=verbose,
-                                crossmatchtol=crossmatchtol,output_basename=output_basename+'_3DHSTinfo')
+                                crossmatchtol=crossmatchtol,output_basename=output_basename+'_3DHSTinfo',
+                                cmfile=cmfile+'.fits')
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def extract_3DHSTdata(infofits_3DHST,outputdir=False,verbose=True):
@@ -332,6 +425,39 @@ def extract_3DHSTdata(infofits_3DHST,outputdir=False,verbose=True):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     return idM_out, id3_out, spec_out
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def get_fits2Dfilenames(specinfo,dataparentdir,big=False,verbose=True):
+    """
+
+    glob for and return absolute paths for existing fits 2D files
+
+    """
+    filelist = []
+    namelist = specinfo.split('xxx')[0]
+
+    for name in namelist:
+        if name != 'None':
+            if big:
+                namestr  = '/BIG/2D/'+name.replace('G141','G141-big')
+                filename = glob.glob(dataparentdir+'/'+name[:-11]+namestr+'.2D.fits')
+
+                if filename == []: # if no BIG spec found, look for regular spectrum
+                    namestr  = '/2D/FITS/'+name
+                    filename = glob.glob(dataparentdir+'/'+name[:-11]+namestr+'.2D.fits')
+            else:
+                namestr  = '/2D/FITS/'+name
+                filename = glob.glob(dataparentdir+'/'+name[:-11]+namestr+'.2D.fits')
+
+            Nfiles   = len(filename)
+            if len(filename) == 1:
+                filelist.append(os.path.abspath(filename[0]))
+            elif Nfiles == 0:
+                if verbose: print '   No 2D.fits files found in data sub-directories '
+            else:
+                if verbose: print '   NB! More than one 2D.fits file found; returning path for first file '
+                filelist.append(os.path.abspath(filename[0]))
+
+    return filelist
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def plot_objectinfo_all(catMUSE,cat3DHST,outputdir='./',zrange=[0.0,10.0],dzcut=0.25,verbose=True):
     """
@@ -626,5 +752,535 @@ def plot_objectinfo_zVSline(catMUSE,cat3DHST,outputdir='./',plotline='OII',zrang
     plt.savefig(plotname)
     plt.clf()
     plt.close('all')
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def plot_3dhst_SpecAndInfo(catMUSE,cat3DHST,plotID='all',outputdir='./',plotscale=[1,99],figxsize=13,cmap='gray',
+                           left=0.1, bottom=0.07, right=0.02, top=0.03, wspace=0.02, hspace=0.04, bigspec=False,
+                           dataparentdir='/Volumes/DATABCKUP3/GOODSdata/3D-HST/GOODSS_WFC3_V4.1.5/',
+                           catphoto='/Users/kschmidt/work/catalogs/skelton/goodss_3dhst.v4.1.cats/Catalog'
+                                    '/goodss_3dhst.v4.1.cat.FITS',verbose=True):
+    """
+    Plotting the available 3D-HST spectra and the 3D-HST (and MUSE) information
+    for all (or a few) objects in an info-cat generated with, e.g., extract_objectsinfo()
+    or objinfo_CDFSobj()
+
+    --- INPUT ---
+
+    cat3DHST        Output fits catalog from extract_objectsinfo() extraction of 3D-HST info
+    catMUSE         MUSE fits catalog the 3D-HST info extraction was based on
+    plotID          List of MUSE IDs to plot. If 'all' then all objects found in catMUSE are plotted.
+    dataparentdir   Parent dir containing the 3D-HST spectra, e.g., GOODSS_WFC3_V4.1.5, which
+                    contains subdirectories of data from individual pointings in 1D, 2D, BIG,
+                    etc. sub-directories.
+    verbose         Toggle verbosity
+
+    --- EXAMPLE OF USE ---
+
+    catMUSE  = 'MUSECDFS_z0p0-10p0_cmtol1p0_MUSEsubcat.fits'
+    cat3DHST = 'MUSECDFS_z0p0-10p0_cmtol1p0_3DHSTinfo.fits'
+    cm3.plot_3dhst_SpecAndInfo(catMUSE,cat3DHST,plotID='all',verbose=True,cmap='coolwarm',bigspec=True,top=0.05)
+
+    cm3.plot_3dhst_SpecAndInfo(catMUSE,cat3DHST,plotID=[10128048,10118034,10611042],verbose=True,cmap='coolwarm')
+
+    cm3.plot_3dhst_SpecAndInfo(catMUSE,cat3DHST,plotID=[10723118,10721114],verbose=True,cmap='coolwarm')
+
+    cm3.plot_3dhst_SpecAndInfo(catMUSE,cat3DHST,plotID=[12341163],verbose=True,cmap='coolwarm')
+
+    MUSEids = cm3.getMissingBigIDs()
+    cm3.plot_3dhst_SpecAndInfo(catMUSE,cat3DHST,plotID=MUSEids,verbose=True,cmap='coolwarm',bigspec=False)
+
+    """
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    if verbose: print ' - Loading data in MUSE and 3DHST catalogs'
+    dat_MUSE  = pyfits.open(catMUSE)[1].data
+    dat_3DHST = pyfits.open(cat3DHST)[1].data
+    dat_photo = pyfits.open(catphoto)[1].data
+
+    id_MUSEcat     = dat_MUSE['ID']
+    id_3DHSTcat    = dat_3DHST['id_MUSE']
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    if plotID == 'all':
+        plotIDs = np.asarray(id_MUSEcat)
+    else:
+        plotIDs = np.asarray(plotID)
+    Nplots = len(plotIDs)
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    if verbose: print ' - Generating plots for '+str(Nplots)+' objects to plot'
+    for oo in xrange(Nplots):
+        skipplot   = False            # keep track of whether to generate plot or not
+        objid      = plotIDs[oo]
+        if verbose: print ' - Grabbing data for ID_MUSE = '+str(objid)+',  ID_3DHST = '
+
+        ent_muse   = np.where(id_MUSEcat == objid)[0]
+
+
+        if len(ent_muse) != 1:
+            if verbose: print '   WARNING - no match in MUSE catalog; no plot generated'
+            skipplot = True
+
+        ent_3dhst  = np.where(id_3DHSTcat == objid)[0]
+
+        if len(ent_3dhst) != 1:
+            if verbose: print '   WARNING - no match in 3DHST catalog; no plot generated'
+            skipplot = True
+
+        if not skipplot:
+            # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+            if verbose: print '   Getting 2D fits file names'
+            objdat_MUSE   = dat_MUSE[ent_muse]
+            objdat_3DHST  = dat_3DHST[ent_3dhst]
+
+            try:
+                fits2Dfilenames = cm3.get_fits2Dfilenames(objdat_3DHST['specinfo'],dataparentdir,verbose=verbose,
+                                                          big=bigspec)
+            except:
+                pdb.set_trace()
+            N2Dfitsfiles    = len(fits2Dfilenames)
+            # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+            if N2Dfitsfiles == 0:
+                if verbose: print '   WARNING - no 3DHST grism spectra stored in specinfo (all "None" and "xxx")'
+                continue
+            # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+            plotname = outputdir+'/'+str(objid)+'_3dhstSpecAndInfo.pdf'
+            if verbose: print '   Setting up and generating plot'
+
+            #----------------- Plot setup -----------------
+            Fsize  = 10
+            lwidth = 1
+            Tcolor = 'black'
+            xscale = 1e4
+            g141range = [11100,16500]
+            xvalrange = [1.10,1.67]
+            plt.rc('text', usetex=True)                         # enabling LaTex rendering of text
+            plt.rc('font', family='serif',size=Fsize)           # setting text font
+            plt.rc('xtick', labelsize=Fsize)
+            plt.rc('ytick', labelsize=Fsize)
+
+            xs     = figxsize
+            sh     = np.shape(pyfits.open(fits2Dfilenames[0])['SCI'].data)
+            if bigspec:
+                shapex = 315 # sh[1]
+                shapey = 80  # sh[0]
+                yfact  = 0.85
+            else:
+                shapex = sh[1]
+                shapey = sh[0]
+                yfact  = 1.0
+            #pdb.set_trace()
+            aspect = (N2Dfitsfiles+2)*shapey*1./(3*shapex)
+            lrbt   = np.array([left,right,bottom,top])*5./xs
+            ys     = (1-lrbt[1]-lrbt[0])/(1-lrbt[3]-lrbt[2])*xs*aspect*yfact
+            lrbt[[2,3]] = lrbt[[2,3]]/aspect
+
+            fig = Figure(figsize=(xs,ys))
+            fig.subplots_adjust(left=lrbt[0], bottom=lrbt[2], right=1-lrbt[1], top=1-lrbt[3],
+                                wspace=wspace, hspace=hspace)
+            #fig.subplots_adjust(wspace=0.2, hspace=0.2,left=0.04, right=0.98, bottom=0.13, top=0.89)
+            #plt.title(plotname.split('/')[-1].replace('_','\_'),fontsize=Fsize)
+
+            #----------------- Load Data -----------------
+            plotcounter = 0
+            for row, filetwod in enumerate(fits2Dfilenames):
+                spec_flux          = pyfits.open(filetwod)['SCI'].data
+                spec_contam        = pyfits.open(filetwod)['CONTAM'].data
+                spec_var           = (pyfits.open(filetwod)['WHT'].data)**2
+                spec_flux_nocontam = spec_flux-spec_contam
+                wave               = pyfits.open(filetwod)['WAVE'].data
+
+                # - - - -  setting plotting scale - - - -
+                if verbose: print '   Setting scales for plotting to',
+                # diff = spec_flux_nocontam
+                # if len(plotscale) == 0:
+                #     plotscale = [plotscale, plotscale]
+                #
+                # ok = (spec_var > 0) & (spec_flux != 0) & (spec_flux < 0.01)
+                # if ok.sum() > 1:
+                #     vmin = np.percentile(diff[ok].flatten(), plotscale[0])
+                #     vmax = np.percentile(diff[ok].flatten(), plotscale[1])
+                # else:
+                #     vmin, vmax = -1,1
+
+                scalearr   = spec_flux_nocontam[10:-10,10:-10]
+                scalearr   = scalearr[scalearr != 0.0]
+                if len(scalearr) > 0:
+                    vmaximg    = np.abs(np.max(scalearr)*0.7)
+                    vmin, vmax = vmaximg*1e-10, vmaximg
+                else:
+                    vmin, vmax = 0, 1
+
+                if verbose: print vmin,vmax
+
+                # - - - -  setting xrange and interpolate - - - -
+                xx = np.arange(spec_flux.shape[1])
+                if 'G141' in filetwod:
+                    ltick = np.array([1.1,1.2,1.3,1.4,1.5,1.6,1.7])
+                elif 'G102' in filetwod:
+                    ltick = np.array([0.8,0.9,1.0,1.1])
+                elif 'G800L' in filetwod:
+                    ltick = np.array([0.6,0.7,0.8,0.9,1.0])
+                else:
+                    sys.exit('Grism name (for xticks) not found in filename '+filetwod+' --> using G141')
+
+                scale = 1.e4
+                xtick = np.interp(ltick*scale, wave, xx)
+                # - - - -  display images - - - -
+                imglist  = [spec_flux,spec_contam,spec_flux_nocontam]
+                textlist = ['[SCI]','[CONTAM]','[SCI-CONTAM]']
+                for colno in [0,1,2]:
+                    plotcounter = plotcounter+1
+                    ax = fig.add_subplot(N2Dfitsfiles,3,plotcounter) #row,column,plotnumber
+                    ax.imshow(imglist[colno], interpolation='nearest', vmin=vmin, vmax=vmax, cmap=cmap)
+                    ax.set_xticks(xtick)
+                    ax.set_xticklabels(ltick)
+                    if bigspec:
+                        ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
+                    else:
+                        if (plotcounter >= int(N2Dfitsfiles*3-N2Dfitsfiles)) or (N2Dfitsfiles == 1):
+                            ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
+
+                    if colno == 0:
+                        ax.set_ylabel(r' r [arc sec]')
+                    else:
+                        ax.set_yticklabels([])
+
+                    ax.text(0.95, 0.94, textlist[colno],
+                            backgroundcolor='w',ha='right', va='top',
+                            transform=ax.transAxes, color=Tcolor, size=Fsize)
+
+                    if colno == 1:
+                        ax.text(0.5, 0.94, filetwod.split('/')[-1].replace('_','\_'),#+textlist[colno],
+                                backgroundcolor='w',ha='center', va='top',
+                                transform=ax.transAxes, color=Tcolor, size=Fsize)
+
+            #----------------- Position Legend -----------------
+            # box = ax.get_position()
+            # ax.set_position([box.x0, box.y0, box.width, box.height * 0.83])
+            # ax.plot(0,0,'orange',label='G102 PA=XX',linewidth=lwidth*2)
+            # ax.plot(0,0,'red',label='G141 PA=XX',linewidth=lwidth*2)
+            # ax.plot(0,0,'blue',label='Photo-$z$',linewidth=lwidth*2)
+            # ax.plot(0,0,'k',label='$z$fit model',linewidth=lwidth)
+            # leg = ax.legend(fancybox=True, loc='upper left',numpoints=1,prop={'size':Fsize-3.},
+            #                 ncol=3,bbox_to_anchor=(-0.08, 1.27))
+            # leg.get_frame().set_alpha(0.7)
+
+            #----------------- Title with info -----------------
+            id3dhst   = dat_3DHST['ID_3DHST'][ent_3dhst][0]
+            titletext = 'idMUSE='+str(objid)+', id3dhst='+str(id3dhst)
+            titletext = titletext+', rmatch='+str("%.2f" % dat_3DHST['r_match_arcsec'][ent_3dhst])+"''"
+            titletext = titletext+', zbest='+str("%.4f" % dat_3DHST['z_best'][ent_3dhst][0])
+            titletext = titletext+', log(M/M$\odot$)='+str("%.2f" % dat_3DHST['lmass'][ent_3dhst][0])
+            titletext = titletext+', SFR/[M$\odot$/yr]='+str("%.2f" % (10**dat_3DHST['lsfr'][ent_3dhst][0]))
+
+            fOII     = dat_3DHST['OII_FLUX'][ent_3dhst][0]
+            eOII     = dat_3DHST['OII_FLUX_ERR'][ent_3dhst][0]
+            if fOII != -99:
+                #titletext = titletext+', f[OII]='+str("%.2f" % fOII)+'$\pm$'+str("%.2f" % eOII)
+                titletext = titletext+', SNR([OII])='+str("%.2f" % (fOII/eOII))
+            else:
+                titletext = titletext+', SNR([OII])=-99'
+
+            fOIII     = dat_3DHST['OIII_FLUX'][ent_3dhst][0]
+            eOIII     = dat_3DHST['OIII_FLUX_ERR'][ent_3dhst][0]
+            if fOIII != -99:
+                #titletext = titletext+', f[OIII]='+str("%.2f" % fOIII)+'$\pm$'+str("%.2f" % eOIII)
+                titletext = titletext+', SNR([OIII])='+str("%.2f" % (fOIII/eOIII))
+            else:
+                titletext = titletext+', SNR([OIII])=-99'
+
+            fHa     = dat_3DHST['Ha_FLUX'][ent_3dhst][0]
+            eHa     = dat_3DHST['Ha_FLUX_ERR'][ent_3dhst][0]
+            if fHa != -99:
+                #titletext = titletext+', f[Ha]='+str("%.2f" % fHa)+'$\pm$'+str("%.2f" % eHa)
+                titletext = titletext+', SNR(H$\\alpha$)='+str("%.2f" % (fHa/eHa))
+            else:
+                titletext = titletext+', SNR(H$\\alpha$)=-99'
+
+
+            # - - - - get photo info - - - -
+            photid    = dat_photo['id'][id3dhst-1]
+
+            # f160      = dat_photo['f_f160w'][id3dhst-1]
+            # if f160 != -99:
+            #     mf160w    = -2.5*np.log10(f160)+25.0
+            #     ef160w    = (2.5/np.log(10)) * dat_photo['e_f160w'][id3dhst-1]/f160
+            #     titletext = titletext+', m160='+str("%.2f" % mf160w)+'$\pm$'+str("%.2f" % ef160w)
+            # else:
+            #     titletext = titletext+', m160=None'
+
+            f140      = dat_photo['f_f140w'][id3dhst-1]
+            if f140 != -99:
+                mf140w    = -2.5*np.log10(f140)+25.0
+                ef140w    = (2.5/np.log(10)) * dat_photo['e_f140w'][id3dhst-1]/f140
+                titletext = titletext+', m140='+str("%.2f" % mf140w)+'$\pm$'+str("%.2f" % ef140w)
+            else:
+                titletext = titletext+', m140=None'
+
+
+            #titletext = titletext+', photid='+str(photid)
+
+            #ax.text(0.0,1.1, titletext,transform=ax.transAxes, horizontalalignment='center')
+            fig.suptitle(titletext, fontsize=Fsize)
+            #----------------- Write plot to file -----------------
+            if verbose: print '   Saving plot to',plotname
+            canvas = FigureCanvasAgg(fig)
+            canvas.print_figure(plotname, dpi=300, transparent=False)
+
+            # plt.savefig(plotname)
+            # plt.clf()
+            # plt.close('all')
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def getMissingBigIDs(verbose=True):
+    """
+    MUSEids = cm3.getMissingBigIDs()
+
+    NB: Depreciated as get_fits2Dfilenames() now automatically returns the normal spectra if BIG is missing
+
+    """
+    big = np.genfromtxt('./pdf_big160225.txt',dtype='a')
+    normal = np.genfromtxt('./pdf_normal160321.txt',dtype='a')
+
+    MUSEids = []
+    for nn in normal:
+        if nn not in big:
+            if verbose: print ' - missing: '+nn
+            objid = int(nn.split('_')[0])
+            MUSEids.append(objid)
+
+
+    return MUSEids
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def merger_pdfs(searchstring='./spectraplots160325/*.pdf',
+                      outputdocument='./spectraplots160325_allpdfs.pdf',
+                      verbose=True):
+    """
+    merge pdfs
+
+    """
+    kbs.generate_mergedPDF(searchstring=searchstring,outputdocument=outputdocument)
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def convert_pdfs2pngs(searchstring='./*.pdf',clobber=False,quality='75',verbose=True):
+    """
+    Convert all pdfs found by globbing on provided search string
+
+    --- EXAMPLE OF USE ---
+
+    cm3.convert_pdfs2pngs(searchstring='./spectraplots160325/107*.pdf',clobber=False)
+
+    """
+    pdf_files = glob.glob(searchstring)
+
+    if verbose: print ' - Found '+str(len(pdf_files))+' to convert to pngs.'
+
+    for pp, pdff in enumerate(pdf_files):
+        fileno  = pp+1
+        infostr = '   Converting '+pdff+'   ('+str(fileno)+'/'+str(len(pdf_files))+')'
+        sys.stdout.write("%s\r" % infostr)
+        sys.stdout.flush()
+
+        kbs.convert_pdf2png(pdff,clobber=clobber,quality=quality)
+    if verbose: print '\n   ... done converting '
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def generate_datatarball(idlist,outputdir,dataparentdir='/Volumes/DATABCKUP3/GOODSdata/3D-HST/GOODSS_WFC3_V4.1.5/',
+                         tarup=False,clobber=False,verbose=True):
+    """
+    Collect all available data for a list of unique 3D-HST ids
+
+    3DHST ids of the object to copy data for
+
+    """
+
+    if os.path.isdir(outputdir) and (clobber == False):
+        if verbose: print ' - '+outputdir+' exists and clobber=False so not copying over files'
+    else:
+        if not os.path.isdir(outputdir):
+            if verbose: print ' - '+outputdir+' does not exist; creating it'
+            os.mkdir(outputdir)
+
+        if verbose: print ' - Will copy files to '+outputdir
+
+        for ii, specid in enumerate(idlist):
+            if verbose:
+                idno    = ii+1
+                infostr = ' - copying '+str(specid)+' data to '+outputdir+'   ('+str(idno)+'/'+str(len(idlist))+')'
+                sys.stdout.write("%s\r" % infostr)
+                sys.stdout.flush()
+
+            objdir = dataparentdir+'/*/'  # search for all spec with ID '+specid[:9]+'/'
+
+            cpcmd = 'cp '+objdir+'*/*/*_'+str("%.5d" % specid)+'*  '+outputdir
+            cpout = commands.getoutput(cpcmd)
+
+        if verbose: print '\n   ... done copying files '
+
+    if tarup:
+        if verbose: print ' - Tarring up '+outputdir
+        tarcmd = 'tar  -zcf '+outputdir.split('/')[-1]+'.tar.gz   '+outputdir
+        tarout = commands.getoutput(tarcmd)
+        if tarout != '': print tarout
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def prep_infofile4wiki(infofile,outputdir,pdfstring,subrange=[0,None],skip_pdfcopy=False,
+                       pngquality='75',verbose=True):
+    """
+    Load info fits file and prepare the outputs to share at the MUSE-Wide wiki
+
+    fitsinfo = 'MUSECDFS_z0p0-10p0_cmtol1p0_3DHSTinfo.fits'
+    cm3.prep_infofile4wiki(fitsinfo,'testprepdir','./spectraplots160325/107*.pdf')
+
+    """
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    if verbose: print ' - Will assemble data in '+outputdir+' and create tar-ball thereof '
+    if not os.path.isdir(outputdir):
+        if verbose: print '   '+outputdir+' does not exist; creating it'
+        os.mkdir(outputdir)
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    if verbose: print ' - Loading info fits '+infofile
+    data    = pyfits.open(infofile)[1].data
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    if not skip_pdfcopy:
+        if verbose: print ' - Copy over pdfs and generate pngs '
+        pdf_files = glob.glob(pdfstring)
+        for pfile in pdf_files:
+            cpcmd = 'cp '+pfile+' '+outputdir
+            cpout = commands.getoutput(cpcmd)
+            if cpout != '': print cpout
+
+        searchstr = outputdir+'/'+pdfstring.split('/')[-1]
+        cm3.convert_pdfs2pngs(searchstring=searchstr,clobber=True,quality=pngquality,verbose=verbose)
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    if verbose: print ' - generate tarball '
+    id3dhst = data['id_3DHST']
+    id3dhst = id3dhst[subrange[0]:subrange[1]] # select sub range to loop over
+    cm3.generate_datatarball(id3dhst,outputdir,tarup=True,clobber=True,verbose=verbose)
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def create_MUSEcatalog_ECH(catpath='/Users/kschmidt/work/catalogs/MUSE_GTO/'):
+    """
+
+    E. C. Herenz's recipe to generate a MUSE catalog taken from http://musewide.wikidot.com/catalogues
+
+    (modfied to return all objects and not just LAEs and strored it in a fits file)
+
+    """
+    import numpy as np
+    from astropy.io import fits
+    from astropy.table import Table
+
+    output = catpath+'candels_1-24_emline_master_v2p0_extended.fits'
+
+    # read in columns from the master catalogue
+    master_catalogue = fits.getdata(catpath+'candels_1-24_emline_master_v2.0.fits')
+    unique_id = master_catalogue['UNIQUE_ID']
+    field_id = master_catalogue['FIELD_ID']
+    obj_id = master_catalogue['OBJ_ID']
+    rid_strongest = master_catalogue['RID_Strongest']
+    ident_strongest = master_catalogue['IDENT_STRONGEST']
+    redshift = master_catalogue['REDSHIFT']
+
+    # select all LAEs
+    #lae_select = [ident_strongest == 'Lya']
+    lae_select = [obj_id > 0] # mask to select all objects in stead of just LAEs
+
+    # prepare columns for the output table
+    # UNIQUE_ID, FIELD_ID, OBJ_ID, RID_Strongest, RA, DEC, REDSHIFT,
+    # FLUX_3KRON, FLUX_3KRON_ERR, MULTI_LINE_FLAG, CONFIDENCE
+    # Details: RA & DEC we use {RA,DEC}_1MOM,
+    #          MULTI_LINE_FLAG indicates if the object has more than one line detected...
+    #          (AGN, multi peak detectin) - these sources need some care afterwards.
+    # - some columns can be directly copied from the master catalogue
+    unique_id_out = unique_id[lae_select]
+    field_id_out = field_id[lae_select]
+    obj_id_out = obj_id[lae_select]
+    redshift_out = redshift[lae_select]
+    rid_strongest_out = rid_strongest[lae_select]
+    # - the rest needs to be copied from the entries in the original per
+    #   field catalogues
+    ra_out = []
+    dec_out = []
+    flux_3kron_out = []
+    flux_3kron_err_out = []
+    multi_line_flag_out = []
+    confidence_out = []
+
+    # no iterate over the original and cleaned per-field catalogues to
+    # fill those columns
+    for unique_id_lae,field_id_lae,rid_strongest_lae in zip(unique_id_out,
+                                                            field_id_out,
+                                                            rid_strongest_out):
+        field_id_str = str(field_id_lae).zfill(2)
+        orig_filename = catpath+'original_per_field_v2.0/cat_ident_candels-cdfs-'+\
+                        field_id_str+'_rid_fluxes_v2.0.fits'
+        clean_filename = catpath+'cleaned_per_field_v2.0/cat_ident_candels-cdfs-'+\
+                         field_id_str+'_v2.0.fits'
+        original_catalogue = fits.getdata(orig_filename)
+        cleaned_catalogue = fits.getdata(clean_filename)
+
+        unique_id_orig = original_catalogue['UNIQUE_ID']
+        unique_id_cleaned = cleaned_catalogue['UNIQUE_ID']
+        unique_lae_orig_select = unique_id_orig == unique_id_lae
+        unique_lae_clean_select = unique_id_orig == unique_id_lae
+        if np.sum(unique_lae_clean_select) > 1:
+            multi_line_flag_out.append(True)
+        elif np.sum(unique_lae_clean_select) == 1:
+            multi_line_flag_out.append(False)
+        else:
+            # should not happen... but happens for the two not correctly
+            # uniquified LAEs
+            continue
+
+
+
+        # pull the fluxes and coordinates from the original per-field catalogue
+        rid_orig = original_catalogue['I']
+        fluxes = original_catalogue['F_3KRON']
+        errors = original_catalogue['F_3KRON_ERR']
+        ras = original_catalogue['RA_1MOM']
+        decs = original_catalogue['DEC_1MOM']
+        orig_select = rid_orig == rid_strongest_lae
+        flux_3kron_out.append(fluxes[orig_select][0])
+        flux_3kron_err_out.append(errors[orig_select][0])
+        ra_out.append(ras[orig_select][0])
+        dec_out.append(decs[orig_select[0]])
+
+        # pull confidence from the cleaned cats
+        rid_clean = cleaned_catalogue['RID']
+        confs = cleaned_catalogue['CONFIDENCE']
+        clean_select = rid_clean == rid_strongest_lae
+        confidence_out.append(confs[clean_select][0])
+
+    # done... now create table
+    lae_flux_table = Table(names=('ID',
+                                  'FIELD_ID',
+                                  'OBJ_ID',
+                                  'RID_Strongest',
+                                  'RA',
+                                  'DEC',
+                                  'REDSHIFT',
+                                  'F_3KRON',
+                                  'F_3KRON_ERR',
+                                  'MULTI_LINE_FLAG',
+                                  'CONFIDENCE'),
+                           data=(unique_id_out,
+                                 field_id_out,
+                                 obj_id_out,
+                                 rid_strongest_out,
+                                 np.asarray(ra_out),
+                                 np.asarray(dec_out),
+                                 redshift_out,
+                                 np.asarray(flux_3kron_out),
+                                 np.asarray(flux_3kron_err_out),
+                                 np.asarray(multi_line_flag_out,dtype=np.bool),
+                                 np.asarray(confidence_out)))
+
+
+    lae_flux_table.write(output,format='fits')
+    #lae_flux_table.write(output.replace('.fits','.html'),format='ascii.html')
+
+    #pdb.set_trace()
+    #pyfits.writeto(output,lae_flux_table, header=None, clobber=True)
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
