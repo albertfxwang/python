@@ -9,6 +9,9 @@ import pyfits
 import kbsutilities as kbs
 import numpy as np
 import manipulate_3DHSTdata as m3d
+import time
+import subprocess
+import visualinspection as vi
 import CDFS_MUSEvs3DHST as cm3
 import fits2ascii as f2a
 import matplotlib.pyplot as plt
@@ -355,14 +358,14 @@ def objinfo_CDFSobj(MUSEcat,zcut=[2.9-10.0],output_basename='./objectinfo_output
         cmfile = output_basename+'_crossmatch_3DHST'
         radeccat = MUSEcat
         matchcat = '/Users/kschmidt/work/catalogs/skelton/goodss_3dhst.v4.1.cats/Catalog/goodss_3dhst.v4.1.cat.FITS'
-        cmout = kbs.crossmatch2cat(radeccat,matchcat=matchcat,clobber=clobber,
+        cmout = kbs.crossmatch2cat(radeccat,matchcat=matchcat,clobber=clobber,idcol='UNIQUE_ID',
                                    writetofile=cmfile.split('.fit')[0],verbose=verbose)
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if verbose: print ' - Loading MUSE catalog and extracting ids based on selection'
     musedat   = pyfits.open(MUSEcat)[MUSEcatext].data
     goodmask  = (musedat['redshift'] >= zcut[0]) & (musedat['redshift'] <= zcut[1])
     gooddat   = musedat[goodmask]
-    goodids   = musedat['ID'][goodmask]
+    goodids   = musedat['UNIQUE_ID'][goodmask]
     Ngoodobj  = len(goodids)
     if verbose: print '   Found '+str(Ngoodobj)+' objects with z = ',zcut
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -433,7 +436,7 @@ def get_fits2Dfilenames(specinfo,dataparentdir,big=False,verbose=True):
 
     """
     filelist = []
-    namelist = specinfo.split('xxx')[0]
+    namelist = specinfo.split('xxx')
 
     for name in namelist:
         if name != 'None':
@@ -504,7 +507,7 @@ def plot_objectinfo_zVSz(catMUSE,cat3DHST,outputdir='./',zrange=[0.0,10.0],verbo
     dat_MUSE  = pyfits.open(catMUSE)[1].data
     dat_3DHST = pyfits.open(cat3DHST)[1].data
 
-    id_MUSEcat     = dat_MUSE['ID']
+    id_MUSEcat     = dat_MUSE['UNIQUE_ID']
     id_3DHSTcat    = dat_3DHST['id_MUSE']
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -527,8 +530,6 @@ def plot_objectinfo_zVSz(catMUSE,cat3DHST,outputdir='./',zrange=[0.0,10.0],verbo
         objent = np.where(id_3DHSTcat == obj)[0]
 
         zMUSE          = dat_MUSE['redshift'][oo]
-        zMUSE_conf     = dat_MUSE['confidence'][oo]
-        zMUSE_conf     = dat_MUSE['line_id'][oo]
 
         z3DHST         = dat_3DHST['z_best'][objent]
         z3DHST_l95     = dat_3DHST['z_best_l95'][objent]
@@ -591,8 +592,8 @@ def plot_objectinfo_zVSz(catMUSE,cat3DHST,outputdir='./',zrange=[0.0,10.0],verbo
     plt.close('all')
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def plot_objectinfo_zVSline(catMUSE,cat3DHST,outputdir='./',plotline='OII',zrange=[0.0,10.0],
-                            linerange=False,EWrange=False,dzcut=0.25,verbose=True):
+def plot_objectinfo_zVSline(catMUSE,cat3DHST,outputdir='./',plotline='OII',zrange=[0.0,10.0],matchtol=0.5,
+                            linerange=False,EWrange=False,dzcut=0.25,printsample=False,verbose=True):
     """
     Plotting content of a MUSE catalog, with corresponding 3DHST info catalog
 
@@ -604,6 +605,10 @@ def plot_objectinfo_zVSline(catMUSE,cat3DHST,outputdir='./',plotline='OII',zrang
     verbose       Toggle verbosity
 
     --- EXAMPLE OF USE ---
+    catMUSE  = 'MUSECDFS_z0p0-7p0_cmtol10p0_v2p1_MUSEsubcat.fits'
+    cat3DHST = 'MUSECDFS_z0p0-7p0_cmtol10p0_v2p1_3DHSTinfo.fits'
+    cm3.plot_objectinfo_zVSline(catMUSE,cat3DHST,plotline='OII',zrange=[2.5,6.0],EWrange=[0,500],linerange=[-1,10],dzcut=0.25)
+
 
     """
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -611,7 +616,7 @@ def plot_objectinfo_zVSline(catMUSE,cat3DHST,outputdir='./',plotline='OII',zrang
     dat_MUSE  = pyfits.open(catMUSE)[1].data
     dat_3DHST = pyfits.open(cat3DHST)[1].data
 
-    id_MUSEcat     = dat_MUSE['ID']
+    id_MUSEcat     = dat_MUSE['UNIQUE_ID']
     id_3DHSTcat    = dat_3DHST['id_MUSE']
     lineflux       = dat_3DHST[plotline+'_FLUX']
     lineEW         = dat_3DHST[plotline+'_EQW']
@@ -638,14 +643,19 @@ def plot_objectinfo_zVSline(catMUSE,cat3DHST,outputdir='./',plotline='OII',zrang
         except:
             linerange = [0,10]
 
+    if printsample:
+        samplefile = plotname.replace('_Flux.pdf','_sample.txt')
+        fout = open(samplefile,'w')
+        if verbose: print '   Saving sample to',samplefile
+        fout.write('# idmuse id3dhst zmuse z3dhst dz f'+plotline+' ferr'+plotline+' \n')
+
     for oo, obj in enumerate(id_MUSEcat):
         objent = np.where(id_3DHSTcat == obj)[0]
 
         zMUSE          = dat_MUSE['redshift'][oo]
-        zMUSE_conf     = dat_MUSE['confidence'][oo]
-        zMUSE_conf     = dat_MUSE['line_id'][oo]
 
         z3DHST         = dat_3DHST['z_best'][objent]
+        r_match        = dat_3DHST['r_match_arcsec'][objent]
         f_3DHST        = dat_3DHST[plotline+'_FLUX'][objent]
         ferr_3DHST     = dat_3DHST[plotline+'_FLUX_ERR'][objent]
 
@@ -653,14 +663,28 @@ def plot_objectinfo_zVSline(catMUSE,cat3DHST,outputdir='./',plotline='OII',zrang
 
 
         if dz < dzcut:
-            col = 'green'
+            fcol    = 'green'
+            ecol   = 'green'
+            symbol = 'o'
         else:
-            col = 'red'
+            fcol    = 'red'
+            ecol   = 'red'
+            symbol = '^'
+
+        if r_match > matchtol:
+            fcol    = "None"
+            ecol   = "black"
 
         if f_3DHST > 0:
             plt.errorbar(zMUSE,f_3DHST,xerr=None,yerr=ferr_3DHST,
-                         fmt='o',lw=lthick,ecolor=col, markersize=marksize,markerfacecolor=col,
+                         fmt=symbol,lw=lthick,ecolor=ecol, markersize=marksize,markerfacecolor=fcol,
                          markeredgecolor = 'k')#,label='Ground-based spec')
+
+            if printsample:
+                outstr = str(obj)+'  '+str('%6s' % dat_3DHST['id_3DHST'][objent][0])+'  '+\
+                         str('%.4f' % zMUSE)+'  '+str('%.4f' % z3DHST[0])+'  '+str('%.4f' % dz[0])+'  '+\
+                         str('%10.4f' % f_3DHST[0])+'  '+str('%10.4f' % ferr_3DHST[0])
+                fout.write(outstr+'\n')
 
     plt.xlabel('zMUSE', fontsize=Fsize)
     plt.ylabel('Flux '+plotline+' [$10^{-17}$ ergs/s/cm$^2$]', fontsize=Fsize)
@@ -669,7 +693,7 @@ def plot_objectinfo_zVSline(catMUSE,cat3DHST,outputdir='./',plotline='OII',zrang
     plt.ylim(linerange)
 
     #--------- LEGEND ---------
-    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='o',lw=lthick,ecolor='red', markersize=marksize,
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='^',lw=lthick,ecolor='red', markersize=marksize,
                  markerfacecolor='red',markeredgecolor = 'k',label='$|z$MUSE-$z$3DHST$| >$ '+str("%.2f" % dzcut))
     plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='o',lw=lthick,ecolor='green', markersize=marksize,
                  markerfacecolor='green',markeredgecolor = 'k',label='$|z$MUSE-$z$3DHST$| <$ '+str("%.2f" % dzcut))
@@ -711,10 +735,9 @@ def plot_objectinfo_zVSline(catMUSE,cat3DHST,outputdir='./',plotline='OII',zrang
         objent = np.where(id_3DHSTcat == obj)[0]
 
         zMUSE          = dat_MUSE['redshift'][oo]
-        zMUSE_conf     = dat_MUSE['confidence'][oo]
-        zMUSE_conf     = dat_MUSE['line_id'][oo]
 
         z3DHST         = dat_3DHST['z_best'][objent]
+        r_match        = dat_3DHST['r_match_arcsec'][objent]
         EW_3DHST       = dat_3DHST[plotline+'_EQW'][objent]
         EWerr_3DHST    = dat_3DHST[plotline+'_EQW_ERR'][objent]
 
@@ -722,13 +745,21 @@ def plot_objectinfo_zVSline(catMUSE,cat3DHST,outputdir='./',plotline='OII',zrang
 
 
         if dz < dzcut:
-            col = 'green'
+            fcol    = 'green'
+            ecol    = 'green'
+            symbol = 'o'
         else:
-            col = 'red'
+            fcol    = 'red'
+            ecol    = 'red'
+            symbol = '^'
+
+        if r_match > matchtol:
+            fcol    = "None"
+            ecol   = "black"
 
         if EW_3DHST > 0:
             plt.errorbar(zMUSE,EW_3DHST,xerr=None,yerr=EWerr_3DHST,
-                         fmt='o',lw=lthick,ecolor=col, markersize=marksize,markerfacecolor=col,
+                         fmt=symbol,lw=lthick,ecolor=ecol, markersize=marksize,markerfacecolor=fcol,
                          markeredgecolor = 'k')
 
     plt.xlabel('zMUSE', fontsize=Fsize)
@@ -738,7 +769,7 @@ def plot_objectinfo_zVSline(catMUSE,cat3DHST,outputdir='./',plotline='OII',zrang
     plt.ylim(EWrange)
 
     #--------- LEGEND ---------
-    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='o',lw=lthick,ecolor='red', markersize=marksize,
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='^',lw=lthick,ecolor='red', markersize=marksize,
                  markerfacecolor='red',markeredgecolor = 'k',label='$|z$MUSE-$z$3DHST$| >$ '+str("%.2f" % dzcut))
     plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='o',lw=lthick,ecolor='green', markersize=marksize,
                  markerfacecolor='green',markeredgecolor = 'k',label='$|z$MUSE-$z$3DHST$| <$ '+str("%.2f" % dzcut))
@@ -786,9 +817,6 @@ def plot_3dhst_SpecAndInfo(catMUSE,cat3DHST,plotID='all',outputdir='./',plotscal
 
     cm3.plot_3dhst_SpecAndInfo(catMUSE,cat3DHST,plotID=[12341163],verbose=True,cmap='coolwarm')
 
-    MUSEids = cm3.getMissingBigIDs()
-    cm3.plot_3dhst_SpecAndInfo(catMUSE,cat3DHST,plotID=MUSEids,verbose=True,cmap='coolwarm',bigspec=False)
-
     """
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if verbose: print ' - Loading data in MUSE and 3DHST catalogs'
@@ -796,7 +824,7 @@ def plot_3dhst_SpecAndInfo(catMUSE,cat3DHST,plotID='all',outputdir='./',plotscal
     dat_3DHST = pyfits.open(cat3DHST)[1].data
     dat_photo = pyfits.open(catphoto)[1].data
 
-    id_MUSEcat     = dat_MUSE['ID']
+    id_MUSEcat     = dat_MUSE['UNIQUE_ID']
     id_3DHSTcat    = dat_3DHST['id_MUSE']
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if plotID == 'all':
@@ -809,7 +837,7 @@ def plot_3dhst_SpecAndInfo(catMUSE,cat3DHST,plotID='all',outputdir='./',plotscal
     for oo in xrange(Nplots):
         skipplot   = False            # keep track of whether to generate plot or not
         objid      = plotIDs[oo]
-        if verbose: print ' - Grabbing data for ID_MUSE = '+str(objid)+',  ID_3DHST = '
+        if verbose: print ' - Grabbing data for ID_MUSE = '+str(objid)
 
         ent_muse   = np.where(id_MUSEcat == objid)[0]
 
@@ -831,9 +859,10 @@ def plot_3dhst_SpecAndInfo(catMUSE,cat3DHST,plotID='all',outputdir='./',plotscal
             objdat_3DHST  = dat_3DHST[ent_3dhst]
 
             try:
-                fits2Dfilenames = cm3.get_fits2Dfilenames(objdat_3DHST['specinfo'],dataparentdir,verbose=verbose,
+                fits2Dfilenames = cm3.get_fits2Dfilenames(objdat_3DHST['specinfo'][0],dataparentdir,verbose=verbose,
                                                           big=bigspec)
             except:
+                print ' ERROR - something went wrong when running cm3.get_fits2Dfilenames(); stopping...'
                 pdb.set_trace()
             N2Dfitsfiles    = len(fits2Dfilenames)
             # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -939,7 +968,7 @@ def plot_3dhst_SpecAndInfo(catMUSE,cat3DHST,plotID='all',outputdir='./',plotscal
                             ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
 
                     if colno == 0:
-                        ax.set_ylabel(r' r [arc sec]')
+                        ax.set_ylabel(r' r [pixels]')
                     else:
                         ax.set_yticklabels([])
 
@@ -1158,28 +1187,37 @@ def prep_infofile4wiki(infofile,outputdir,pdfstring,subrange=[0,None],skip_pdfco
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def create_MUSEcatalog_ECH(catpath='/Users/kschmidt/work/catalogs/MUSE_GTO/'):
+def create_MUSEcatalog_ECH(version='2.1',catpath='/Users/kschmidt/work/catalogs/MUSE_GTO/'):
     """
 
     E. C. Herenz's recipe to generate a MUSE catalog taken from http://musewide.wikidot.com/catalogues
 
-    (modfied to return all objects and not just LAEs and strored it in a fits file)
+    KBS Modifications:
+     - Return all objects and not just LAEs
+     - Save to fits file
+     - Version keyword to ease re-runs with new catalogs
+
+    --- EXAMPLE OF USE ---
+    import CDFS_MUSEvs3DHST as cm3
+    cm3.create_MUSEcatalog_ECH(version='2.1')
 
     """
     import numpy as np
     from astropy.io import fits
     from astropy.table import Table
 
-    output = catpath+'candels_1-24_emline_master_v2p0_extended.fits'
+    output = catpath+'candels_1-24_emline_master_v'+version.replace('.','p')+'_extended.fits'
 
     # read in columns from the master catalogue
-    master_catalogue = fits.getdata(catpath+'candels_1-24_emline_master_v2.0.fits')
+    master_catalogue = fits.getdata(catpath+'candels_1-24_emline_master_v'+version+'.fits')
     unique_id = master_catalogue['UNIQUE_ID']
     field_id = master_catalogue['FIELD_ID']
     obj_id = master_catalogue['OBJ_ID']
     rid_strongest = master_catalogue['RID_Strongest']
     ident_strongest = master_catalogue['IDENT_STRONGEST']
     redshift = master_catalogue['REDSHIFT']
+    if version != '2.0':
+        redshifterr = master_catalogue['REDSHIFT_ERR']
 
     # select all LAEs
     #lae_select = [ident_strongest == 'Lya']
@@ -1196,6 +1234,10 @@ def create_MUSEcatalog_ECH(catpath='/Users/kschmidt/work/catalogs/MUSE_GTO/'):
     field_id_out = field_id[lae_select]
     obj_id_out = obj_id[lae_select]
     redshift_out = redshift[lae_select]
+    if version != '2.0':
+        redshifterr_out = redshifterr[lae_select]
+    else:
+        redshifterr_out = np.zeros(len(obj_id_out))-99
     rid_strongest_out = rid_strongest[lae_select]
     # - the rest needs to be copied from the entries in the original per
     #   field catalogues
@@ -1212,10 +1254,10 @@ def create_MUSEcatalog_ECH(catpath='/Users/kschmidt/work/catalogs/MUSE_GTO/'):
                                                             field_id_out,
                                                             rid_strongest_out):
         field_id_str = str(field_id_lae).zfill(2)
-        orig_filename = catpath+'original_per_field_v2.0/cat_ident_candels-cdfs-'+\
-                        field_id_str+'_rid_fluxes_v2.0.fits'
-        clean_filename = catpath+'cleaned_per_field_v2.0/cat_ident_candels-cdfs-'+\
-                         field_id_str+'_v2.0.fits'
+        orig_filename = catpath+'original_per_field_v'+version+'/cat_ident_candels-cdfs-'+\
+                        field_id_str+'_rid_fluxes_v'+version+'.fits'
+        clean_filename = catpath+'cleaned_per_field_v'+version+'/cat_ident_candels-cdfs-'+\
+                         field_id_str+'_v2.1.fits'
         original_catalogue = fits.getdata(orig_filename)
         cleaned_catalogue = fits.getdata(clean_filename)
 
@@ -1244,7 +1286,7 @@ def create_MUSEcatalog_ECH(catpath='/Users/kschmidt/work/catalogs/MUSE_GTO/'):
         flux_3kron_out.append(fluxes[orig_select][0])
         flux_3kron_err_out.append(errors[orig_select][0])
         ra_out.append(ras[orig_select][0])
-        dec_out.append(decs[orig_select[0]])
+        dec_out.append(decs[orig_select][0]) ### [0]] -> ][0]
 
         # pull confidence from the cleaned cats
         rid_clean = cleaned_catalogue['RID']
@@ -1260,6 +1302,7 @@ def create_MUSEcatalog_ECH(catpath='/Users/kschmidt/work/catalogs/MUSE_GTO/'):
                                   'RA',
                                   'DEC',
                                   'REDSHIFT',
+                                  'REDSHIFT_ERR',
                                   'F_3KRON',
                                   'F_3KRON_ERR',
                                   'MULTI_LINE_FLAG',
@@ -1271,6 +1314,7 @@ def create_MUSEcatalog_ECH(catpath='/Users/kschmidt/work/catalogs/MUSE_GTO/'):
                                  np.asarray(ra_out),
                                  np.asarray(dec_out),
                                  redshift_out,
+                                 redshifterr_out,
                                  np.asarray(flux_3kron_out),
                                  np.asarray(flux_3kron_err_out),
                                  np.asarray(multi_line_flag_out,dtype=np.bool),
@@ -1282,5 +1326,618 @@ def create_MUSEcatalog_ECH(catpath='/Users/kschmidt/work/catalogs/MUSE_GTO/'):
 
     #pdb.set_trace()
     #pyfits.writeto(output,lae_flux_table, header=None, clobber=True)
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def get_candidates(zrange=[4.7,7.9],matchtol=0.5,searchwave_rest=1909.0,
+                   catMUSE = 'MUSECDFS_z0p0-7p0_cmtol10p0_v2p1_MUSEsubcat.fits',
+                   cat3DHST = 'MUSECDFS_z0p0-7p0_cmtol10p0_v2p1_3DHSTinfo.fits',
+                   verbose=True):
+    """
 
+    Get a list of MUSE LAEs for a set of redshift cuts to look for lines in 3D-HST spectra
+
+    E.g., CIII] falls in the 3D-HST G141 for z~[4.7,7.9]
+
+    --- EXAMPLE OF USE ---
+    import CDFS_MUSEvs3DHST as cm3
+    cm3.get_candidates(zrange=[4.7,7.9],matchtol=0.5)
+    cm3.get_candidates(zrange=[2.8,3.9],matchtol=0.5)
+
+
+    """
+    if verbose: print ' - Getting objects in redshift range ['+str(zrange[0])+','+str(zrange[1])+']'
+    data_cM = pyfits.open(catMUSE)[1].data
+    data_c3 = pyfits.open(cat3DHST)[1].data
+
+
+    ids_MUSE = data_cM['UNIQUE_ID'][np.where((data_cM['REDSHIFT'] > zrange[0]) &
+                                             (data_cM['REDSHIFT'] < zrange[1]))[0]]
+    if verbose: print '   Found '+str(len(ids_MUSE))+' candidate objects in total'
+
+    nogoodmatches_id = []
+    nogoodmatches_rm = []
+    if verbose: print '#   ID_MUSE        ID_3DHST    R_MATCH   REDSHIFT  REDSHIFT_ERR    SEARCHWAVE_OBS'
+    for objid in ids_MUSE:
+        ent     = np.where((data_c3['ID_MUSE'] == objid))[0]
+        goodent = np.where((data_c3['ID_MUSE'] == objid) & (data_c3['r_match_arcsec'] < matchtol))[0]
+        if len(goodent) == 0:
+            nogoodmatches_id.append(objid)
+            nogoodmatches_rm.append(np.min(data_c3['r_match_arcsec'][ent]))
+
+        else:
+            museent        = np.where(data_cM['UNIQUE_ID'] == objid)[0]
+            objredshift    = data_cM['REDSHIFT'][museent]
+            searchwave_obs = searchwave_rest*(1+objredshift)
+            if verbose:
+                print '   '+str("%10s" % objid)+'  '+str("%10s" % data_c3['ID_3DHST'][goodent][0])+\
+                      '      '+str("%.4f" % data_c3['r_match_arcsec'][goodent])+\
+                      '     '+str("%.4f" % objredshift)+\
+                      '      '+str("%.4f" % data_cM['REDSHIFT_ERR'][museent])+\
+                      '           '+str("%.0f" % searchwave_obs)
+
+
+    for nn, ngm in enumerate(nogoodmatches_id):
+        if verbose: print '#   No good match to ID_MUSE = '+str(ngm)+\
+                          '   (r_match = '+str("%.4f" % nogoodmatches_rm[nn])+')'
+
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def inspect_G141specs(objectfile,specdir='./MUSECDFS_z0p0-7p0_cmtol10p0_v2p1/',smooth=False,
+                      ds9circlename='CIII]',verbose=True,oneobj=False):
+    """
+
+    Spectra for 3D_HST ids in ds9 for inspection.
+
+    --- EXAMPLE OF USE ---
+    import CDFS_MUSEvs3DHST as cm3
+    cm3.inspect_G141specs('./candidateCIIIemitters.txt')
+
+    """
+    if verbose: print ' - Inspecting spectre for objects in '+objectfile
+    objdat = np.genfromtxt(objectfile,names=True,dtype=None,comments='#')
+
+    if verbose: print ' - Preparing DS9 window and start spawning commands via XPA '
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    Nframes = 12
+    opends9 = 'ds9 -geometry 1000x800 -scale zscale -lock frame physical -tile grid layout 3 '+str(Nframes/3)
+    pds9    = subprocess.Popen(opends9,shell=True,executable=os.environ["SHELL"])
+    time.sleep(1.1)                          # sleep to make sure ds9 appear in PIDlist
+    ds9PID  = vi.getPID('ds9',verbose=False) # get PID of DS9 process
+    time.sleep(1.0)
+    for ii in xrange(Nframes-1):
+        out = commands.getoutput('xpaset -p ds9 frame new')
+    out = commands.getoutput('xpaset -p ds9 tile')
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    for oo, objid in enumerate(objdat['ID_MUSE']):
+        if oneobj:
+            if not int(objid) == oneobj: continue
+        fitsfiles  = glob.glob(specdir+'/*'+str(objdat['ID_3DHST'][oo])+'*2D.fits')
+
+        frame = 1
+        for ff, fitsfile in enumerate(fitsfiles):
+            pos2D  = [16800,0] # positon of text for 2D spectra DS9 region
+            ccen   = [objdat['SEARCHWAVE_OBS'][oo],0] # circle center for 2D spectra DS9 region
+
+            out = commands.getoutput('xpaset -p ds9 frame '+str(frame))
+            out = commands.getoutput('xpaset -p ds9 file '+fitsfile+'[DSCI]')
+            frame += 1
+
+            out = commands.getoutput('xpaset -p ds9 frame '+str(frame))
+
+            out = commands.getoutput('xpaset -p ds9 file '+fitsfile+'[SCI]')
+            if smooth: out = commands.getoutput('xpaset -p ds9 smooth yes')
+            regfile = cm3.ds9region('DSCI',pos2D,circlename=ds9circlename,circlecenter=ccen)
+            out     = commands.getoutput('xpaset -p ds9 regions '+regfile)
+            frame += 1
+
+            out = commands.getoutput('xpaset -p ds9 frame '+str(frame))
+            out = commands.getoutput('xpaset -p ds9 file '+fitsfile+'[CONTAM]')
+            if smooth: out = commands.getoutput('xpaset -p ds9 smooth yes')
+            regfile = cm3.ds9region('CONTAM',pos2D,circlename=ds9circlename,circlecenter=ccen)
+            out     = commands.getoutput('xpaset -p ds9 regions '+regfile)
+            frame += 1
+
+        out = commands.getoutput('xpaset -p ds9 zoom to fit')
+
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        # check if the user is ready to move on to the next object
+        moveon = raw_input(' - Done looking at object MUSE='+str(objid)+
+                           ' / 3DHST='+str(objdat['ID_3DHST'][oo])+
+                           ' ? (y = open next object / q = stop inspecting): ')
+        if (moveon == 'y'):
+            for jj in xrange(Nframes): # cleaning frames
+                out = commands.getoutput('xpaset -p ds9 frame '+str(jj+1))
+                out = commands.getoutput('xpaset -p ds9 frame clear')
+        elif (moveon == 'q'):
+            os.kill(ds9PID,1) # closing ds9 window
+            break
+        else:
+            os.kill(ds9PID,1) # closing ds9 window
+            sys.exit('   "'+moveon+'" is not a valid answer --> Aborting')
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    os.kill(ds9PID,1) # closing ds9 window
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def ds9region(text,textposition,circlename=None,circlecenter=None,filename='temp.reg'):
+    """
+    Create ds9 region file with text string
+    Note that it's overwriting any existing file!
+    """
+    fds9region = open(filename,'w')
+
+    fds9region.write("wcs;\n")
+
+    if circlename:
+        circlestr = 'circle('+str(circlecenter[0])+','+str(circlecenter[1])+','+str(200)+\
+                    '") # color=red width=3 font="times 14 bold roman" text={'+circlename+'} \n'
+        fds9region.write(circlestr)
+
+    textstr = '# text('+str(textposition[0])+','+str(textposition[1])+\
+              ') width=3 textangle=0 textrotate=0 font="times 14 bold roman" text={'+text+'} \n'
+    fds9region.write(textstr)
+
+
+    fds9region.close()
+    return filename
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def investigate_candidates(objectfile,outputdir='./',markids=None,specialobj=99,verbose=True):
+    """
+
+    Invastigate the sample (scatter plots). Mark the objects in markids with special symbols.
+
+    --- EXAMPLE OF USE ---
+    import CDFS_MUSEvs3DHST as cm3
+    cm3.investigate_candidates('./candidateCIIIemitters.txt',markids=[10733150,11121036,11639142,11728077,11931070],specialobj=11931070)
+
+    """
+    datOBJ    = np.genfromtxt(objectfile,names=True,dtype=None,comments='#')
+
+    photocat  = '/Users/kschmidt/work/catalogs/skelton/goodss_3dhst.v4.1.cats/Catalog/goodss_3dhst.v4.1.cat.FITS'
+    datPHOT   = pyfits.open(photocat)[1].data
+    entsPHOT  = []
+
+    catMUSE   = './MUSECDFS_z0p0-7p0_cmtol10p0_v2p1_MUSEsubcat.fits'
+    datMUSE   = pyfits.open(catMUSE)[1].data
+    entsMUSE  = []
+
+    cat3DHST  = './MUSECDFS_z0p0-7p0_cmtol10p0_v2p1_3DHSTinfo.fits'
+    dat3DHST  = pyfits.open(cat3DHST)[1].data
+    ents3DHST = []
+
+    for oo, objid in enumerate(datOBJ['ID_MUSE']):
+        entsPHOT.append(np.where(datPHOT['ID'] == datOBJ['ID_3DHST'][oo])[0])
+        entsMUSE.append(np.where(datMUSE['UNIQUE_ID'] == str(objid))[0])
+        ents3DHST.append(np.where(dat3DHST['ID_MUSE'] == str(objid))[0])
+    entsPHOT  = np.asarray(entsPHOT)
+    entsMUSE  = np.asarray(entsMUSE)
+    ents3DHST = np.asarray(ents3DHST)
+
+    id_MUSE       = datOBJ['ID_MUSE']
+    z_MUSE        = datOBJ['REDSHIFT']
+    z_MUSEerr     = datOBJ['REDSHIFT_ERR']
+    z_3DHST       = dat3DHST['z_best'][ents3DHST]
+    z_3DHSTerrL   = dat3DHST['z_best_l68'][ents3DHST]
+    z_3DHSTerrU   = dat3DHST['z_best_u68'][ents3DHST]
+    z_3DHST_s     = dat3DHST['z_best_s'][ents3DHST]
+    sfrIR_3DHST   = dat3DHST['sfr_IR'][ents3DHST]
+    sfrUV_3DHST   = dat3DHST['sfr_UV'][ents3DHST]
+    f125w         = 25.0-2.5*np.log10(datPHOT['f_f125w'][entsPHOT])
+    f125w_err     = (2.5/np.log(10)) * datPHOT['e_f125w'][entsPHOT] / datPHOT['f_f125w'][entsPHOT]
+    f160w         = 25.0-2.5*np.log10(datPHOT['f_f160w'][entsPHOT])
+    f160w_err     = (2.5/np.log(10)) * datPHOT['e_f160w'][entsPHOT] / datPHOT['f_f160w'][entsPHOT]
+    f606w         = 25.0-2.5*np.log10(datPHOT['f_f606w'][entsPHOT])
+    f606w_err     = (2.5/np.log(10)) * datPHOT['e_f606w'][entsPHOT] / datPHOT['f_f606w'][entsPHOT]
+    f814w         = 25.0-2.5*np.log10(datPHOT['f_f814wcand'][entsPHOT])
+    f814w_err     = (2.5/np.log(10)) * datPHOT['e_f814wcand'][entsPHOT] / datPHOT['f_f814wcand'][entsPHOT]
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    plotname = outputdir+'/'+objectfile.split('/')[-1].replace('.txt','_zVSz.pdf')
+    if verbose: print ' - Setting up and generating plot '+plotname
+    fig = plt.figure(figsize=(6, 5))
+    fig.subplots_adjust(wspace=0.1, hspace=0.1,left=0.1, right=0.95, bottom=0.10, top=0.95)
+    Fsize    = 10
+    lthick   = 1
+    marksize = 6
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif',size=Fsize)
+    plt.rc('xtick', labelsize=Fsize)
+    plt.rc('ytick', labelsize=Fsize)
+    plt.clf()
+    plt.ioff()
+    #plt.title(plotname.split('/')[-1].replace('_','\_'),fontsize=Fsize)
+
+    for oo, objid in enumerate(id_MUSE):
+        if int(objid) in markids:
+            fcol    = 'red'
+            ecol    = 'red'
+            symbol = '^'
+            if int(objid) == specialobj:
+                fcol    = 'green'
+                ecol    = 'green'
+                symbol = 's'
+        else:
+            fcol    = 'black'
+            ecol    = 'black'
+            symbol = 'o'
+
+        xpoint = z_MUSE[oo]
+        ypoint = z_3DHST[oo]
+        offset = 0.13
+        length = 0.05
+        width  = 0.03
+        xrange = [4.2,6.2]
+        yrange = [4.2,6.2]
+        if (xpoint < xrange[0]) & (ypoint > yrange[0]) & (ypoint < yrange[1]):
+            xstart = xrange[0]+offset
+            dx     = -length
+            ystart = ypoint
+            dy     = 0.0
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (xpoint > xrange[1]) & (ypoint > yrange[0]) & (ypoint < yrange[1]):
+            xstart = xrange[1]-offset
+            dx     = +length
+            ystart = ypoint
+            dy     = 0.0
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint < yrange[0]) & (xpoint > xrange[0]) & (xpoint < xrange[1]):
+            xstart = xpoint
+            dx     = 0.0
+            ystart = yrange[0]+offset
+            dy     = -length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint > yrange[1]) & (xpoint > xrange[0]) & (xpoint < xrange[1]):
+            xstart = xpoint
+            dx     = 0.0
+            ystart = yrange[1]-offset
+            dy     = length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint < yrange[0]) & (xpoint < xrange[0]):
+            xstart = xrange[0]+offset
+            dx     = -length
+            ystart = yrange[0]+offset
+            dy     = -length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint > yrange[1]) & (xpoint > xrange[1]):
+            xstart = xrange[1]-offset
+            dx     = length
+            ystart = yrange[1]-offset
+            dy     = length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        else:
+            plt.errorbar(xpoint,ypoint,xerr=z_MUSEerr[oo],yerr=None, #[z_3DHSTerrL[oo],z_3DHSTerrU[oo]],
+                         fmt=symbol,lw=lthick,ecolor=ecol, markersize=marksize,markerfacecolor=fcol,
+                         markeredgecolor = 'k')
+
+    plt.plot([xrange[0],xrange[1]],[yrange[0],yrange[1]],'--k',lw=lthick)
+
+    plt.xlabel('$z$MUSE ($z$ error v2.1 cat)', fontsize=Fsize)
+    plt.ylabel('$z$3D-HST (68\% conf.)', fontsize=Fsize)
+
+    plt.xlim(xrange)
+    plt.ylim(yrange)
+
+    #--------- LEGEND ---------
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='^',lw=lthick,ecolor='red', markersize=marksize,
+                 markerfacecolor='red',markeredgecolor = 'k',label='CIII] emitters (?)')
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='o',lw=lthick,ecolor='black', markersize=marksize,
+                 markerfacecolor='black',markeredgecolor = 'k',label='Main sample ($z$MUSE $> 4.7$)')
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='s',lw=lthick,ecolor='green', markersize=marksize,
+                 markerfacecolor='green',markeredgecolor = 'k',label='idMUSE = '+str(specialobj))
+
+    leg = plt.legend(fancybox=True, loc='upper center',prop={'size':Fsize},ncol=1,numpoints=1)
+                     #bbox_to_anchor=(1.25, 1.03))  # add the legend
+    leg.get_frame().set_alpha(0.7)
+    #--------------------------
+
+    if verbose: print '   Saving plot to',plotname
+    plt.savefig(plotname)
+    plt.clf()
+    plt.close('all')
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    plotname = outputdir+'/'+objectfile.split('/')[-1].replace('.txt','_f606wVSf814w.pdf')
+    if verbose: print ' - Setting up and generating plot '+plotname
+    fig = plt.figure(figsize=(6, 5))
+    fig.subplots_adjust(wspace=0.1, hspace=0.1,left=0.1, right=0.95, bottom=0.10, top=0.95)
+    Fsize    = 10
+    lthick   = 1
+    marksize = 6
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif',size=Fsize)
+    plt.rc('xtick', labelsize=Fsize)
+    plt.rc('ytick', labelsize=Fsize)
+    plt.clf()
+    plt.ioff()
+    #plt.title(plotname.split('/')[-1].replace('_','\_'),fontsize=Fsize)
+
+    for oo, objid in enumerate(id_MUSE):
+        if int(objid) in markids:
+            fcol    = 'red'
+            ecol    = 'red'
+            symbol = '^'
+            if int(objid) == specialobj:
+                fcol    = 'green'
+                ecol    = 'green'
+                symbol = 's'
+        else:
+            fcol    = 'black'
+            ecol    = 'black'
+            symbol = 'o'
+
+        xpoint = f606w[oo]
+        ypoint = f814w[oo]
+        offset = 0.2
+        length = 0.1
+        width  = 0.04
+        xrange = [25,32.5]
+        yrange = [23,28.5]
+        if (xpoint < xrange[0]) & (ypoint > yrange[0]) & (ypoint < yrange[1]):
+            xstart = xrange[0]+offset
+            dx     = -length
+            ystart = ypoint
+            dy     = 0.0
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (xpoint > xrange[1]) & (ypoint > yrange[0]) & (ypoint < yrange[1]):
+            xstart = xrange[1]-offset
+            dx     = +length
+            ystart = ypoint
+            dy     = 0.0
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint < yrange[0]) & (xpoint > xrange[0]) & (xpoint < xrange[1]):
+            xstart = xpoint
+            dx     = 0.0
+            ystart = yrange[0]+offset
+            dy     = -length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint > yrange[1]) & (xpoint > xrange[0]) & (xpoint < xrange[1]):
+            xstart = xpoint
+            dx     = 0.0
+            ystart = yrange[1]-offset
+            dy     = length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint < yrange[0]) & (xpoint < xrange[0]):
+            xstart = xrange[0]+offset
+            dx     = -length
+            ystart = yrange[0]+offset
+            dy     = -length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint > yrange[1]) & (xpoint > xrange[1]):
+            xstart = xrange[1]-offset
+            dx     = length
+            ystart = yrange[1]-offset
+            dy     = length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        else:
+            plt.errorbar(f606w[oo],f814w[oo],xerr=f606w_err[oo],yerr=f814w_err[oo],
+                         fmt=symbol,lw=lthick,ecolor=ecol, markersize=marksize,markerfacecolor=fcol,
+                         markeredgecolor = 'k')
+
+    plt.xlabel('F606W', fontsize=Fsize)
+    plt.ylabel('F814W', fontsize=Fsize)
+
+    plt.xlim(xrange[::-1])
+    plt.ylim(yrange[::-1])
+
+    #--------- LEGEND ---------
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='^',lw=lthick,ecolor='red', markersize=marksize,
+                 markerfacecolor='red',markeredgecolor = 'k',label='CIII] emitters (?)')
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='o',lw=lthick,ecolor='black', markersize=marksize,
+                 markerfacecolor='black',markeredgecolor = 'k',label='Main sample ($z$MUSE $> 4.7$)')
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='s',lw=lthick,ecolor='green', markersize=marksize,
+                 markerfacecolor='green',markeredgecolor = 'k',label='idMUSE = '+str(specialobj))
+
+
+    leg = plt.legend(fancybox=True, loc='upper center',prop={'size':Fsize},ncol=1,numpoints=1)
+                     #bbox_to_anchor=(1.25, 1.03))  # add the legend
+    leg.get_frame().set_alpha(0.7)
+    #--------------------------
+
+    if verbose: print '   Saving plot to',plotname
+    plt.savefig(plotname)
+    plt.clf()
+    plt.close('all')
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    plotname = outputdir+'/'+objectfile.split('/')[-1].replace('.txt','_f125wVSf160w.pdf')
+    if verbose: print ' - Setting up and generating plot '+plotname
+    fig = plt.figure(figsize=(6, 5))
+    fig.subplots_adjust(wspace=0.1, hspace=0.1,left=0.1, right=0.95, bottom=0.10, top=0.95)
+    Fsize    = 10
+    lthick   = 1
+    marksize = 6
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif',size=Fsize)
+    plt.rc('xtick', labelsize=Fsize)
+    plt.rc('ytick', labelsize=Fsize)
+    plt.clf()
+    plt.ioff()
+    #plt.title(plotname.split('/')[-1].replace('_','\_'),fontsize=Fsize)
+
+    for oo, objid in enumerate(id_MUSE):
+        if int(objid) in markids:
+            fcol    = 'red'
+            ecol    = 'red'
+            symbol = '^'
+            if int(objid) == specialobj:
+                fcol    = 'green'
+                ecol    = 'green'
+                symbol = 's'
+        else:
+            fcol    = 'black'
+            ecol    = 'black'
+            symbol = 'o'
+
+        xpoint = f125w[oo]
+        ypoint = f160w[oo]
+        offset = 0.2
+        length = 0.1
+        width  = 0.04
+        xrange = [22,29]
+        yrange = [22,29]
+        if (xpoint < xrange[0]) & (ypoint > yrange[0]) & (ypoint < yrange[1]):
+            xstart = xrange[0]+offset
+            dx     = -length
+            ystart = ypoint
+            dy     = 0.0
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (xpoint > xrange[1]) & (ypoint > yrange[0]) & (ypoint < yrange[1]):
+            xstart = xrange[1]-offset
+            dx     = +length
+            ystart = ypoint
+            dy     = 0.0
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint < yrange[0]) & (xpoint > xrange[0]) & (xpoint < xrange[1]):
+            xstart = xpoint
+            dx     = 0.0
+            ystart = yrange[0]+offset
+            dy     = -length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint > yrange[1]) & (xpoint > xrange[0]) & (xpoint < xrange[1]):
+            xstart = xpoint
+            dx     = 0.0
+            ystart = yrange[1]-offset
+            dy     = length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint < yrange[0]) & (xpoint < xrange[0]):
+            xstart = xrange[0]+offset
+            dx     = -length
+            ystart = yrange[0]+offset
+            dy     = -length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint > yrange[1]) & (xpoint > xrange[1]):
+            xstart = xrange[1]-offset
+            dx     = length
+            ystart = yrange[1]-offset
+            dy     = length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        else:
+            plt.errorbar(f125w[oo],f160w[oo],xerr=f125w_err[oo],yerr=f160w_err[oo],
+                         fmt=symbol,lw=lthick,ecolor=ecol, markersize=marksize,markerfacecolor=fcol,
+                         markeredgecolor = 'k')
+
+    plt.xlabel('F125W', fontsize=Fsize)
+    plt.ylabel('F160W', fontsize=Fsize)
+
+    plt.xlim(xrange[::-1])
+    plt.ylim(yrange[::-1])
+
+    #--------- LEGEND ---------
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='^',lw=lthick,ecolor='red', markersize=marksize,
+                 markerfacecolor='red',markeredgecolor = 'k',label='CIII] emitters (?)')
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='o',lw=lthick,ecolor='black', markersize=marksize,
+                 markerfacecolor='black',markeredgecolor = 'k',label='Main sample ($z$MUSE $> 4.7$)')
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='s',lw=lthick,ecolor='green', markersize=marksize,
+                 markerfacecolor='green',markeredgecolor = 'k',label='idMUSE = '+str(specialobj))
+
+
+    leg = plt.legend(fancybox=True, loc='upper center',prop={'size':Fsize},ncol=1,numpoints=1)
+                     #bbox_to_anchor=(1.25, 1.03))  # add the legend
+    leg.get_frame().set_alpha(0.7)
+    #--------------------------
+
+    if verbose: print '   Saving plot to',plotname
+    plt.savefig(plotname)
+    plt.clf()
+    plt.close('all')
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    plotname = outputdir+'/'+objectfile.split('/')[-1].replace('.txt','_sfruvVSsfrir.pdf')
+    if verbose: print ' - Setting up and generating plot '+plotname
+    fig = plt.figure(figsize=(6, 5))
+    fig.subplots_adjust(wspace=0.1, hspace=0.1,left=0.1, right=0.95, bottom=0.10, top=0.95)
+    Fsize    = 10
+    lthick   = 1
+    marksize = 6
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif',size=Fsize)
+    plt.rc('xtick', labelsize=Fsize)
+    plt.rc('ytick', labelsize=Fsize)
+    plt.clf()
+    plt.ioff()
+    #plt.title(plotname.split('/')[-1].replace('_','\_'),fontsize=Fsize)
+
+    for oo, objid in enumerate(id_MUSE):
+        if int(objid) in markids:
+            fcol    = 'red'
+            ecol    = 'red'
+            symbol = '^'
+            if int(objid) == specialobj:
+                fcol    = 'green'
+                ecol    = 'green'
+                symbol = 's'
+        else:
+            fcol    = 'black'
+            ecol    = 'black'
+            symbol = 'o'
+
+
+        xpoint = sfrUV_3DHST[oo]
+        ypoint = sfrIR_3DHST[oo]
+        offset = 8.0
+        length = 3.0
+        width  = 0.5
+        xrange = [0,25]
+        yrange = [0,250]
+        if (xpoint < xrange[0]) & (ypoint > yrange[0]) & (ypoint < yrange[1]):
+            xstart = xrange[0]+offset
+            dx     = -length
+            ystart = ypoint
+            dy     = 0.0
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (xpoint > xrange[1]) & (ypoint > yrange[0]) & (ypoint < yrange[1]):
+            xstart = xrange[1]-offset
+            dx     = +length
+            ystart = ypoint
+            dy     = 0.0
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint < yrange[0]) & (xpoint > xrange[0]) & (xpoint < xrange[1]):
+            xstart = xpoint
+            dx     = 0.0
+            ystart = yrange[0]+offset
+            dy     = -length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint > yrange[1]) & (xpoint > xrange[0]) & (xpoint < xrange[1]):
+            xstart = xpoint
+            dx     = 0.0
+            ystart = yrange[1]-offset
+            dy     = length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint < yrange[0]) & (xpoint < xrange[0]):
+            xstart = xrange[0]+offset
+            dx     = -length
+            ystart = yrange[0]+offset
+            dy     = -length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        elif (ypoint > yrange[1]) & (xpoint > xrange[1]):
+            xstart = xrange[1]-offset
+            dx     = length
+            ystart = yrange[1]-offset
+            dy     = length
+            plt.arrow(xstart, ystart, dx, dy, head_width=width, head_length=length, fc=fcol, ec=ecol)
+        else:
+            plt.errorbar(sfrUV_3DHST[oo],sfrIR_3DHST[oo],xerr=None,yerr=None,
+                         fmt=symbol,lw=lthick,ecolor=ecol, markersize=marksize,markerfacecolor=fcol,
+                         markeredgecolor = 'k')
+
+    plt.xlabel('SFR UV [M$\odot$/yr]', fontsize=Fsize)
+    plt.ylabel('SFR IR [M$\odot$/yr]', fontsize=Fsize)
+
+    plt.xlim(xrange)
+    plt.ylim(yrange)
+
+    #--------- LEGEND ---------
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='^',lw=lthick,ecolor='red', markersize=marksize,
+                 markerfacecolor='red',markeredgecolor = 'k',label='CIII] emitters (?)')
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='o',lw=lthick,ecolor='black', markersize=marksize,
+                 markerfacecolor='black',markeredgecolor = 'k',label='Main sample ($z$MUSE $> 4.7$)')
+    plt.errorbar(-1,-1,xerr=None,yerr=None,fmt='s',lw=lthick,ecolor='black', markersize=marksize,
+                 markerfacecolor='green',markeredgecolor = 'k',label='idMUSE = '+str(specialobj))
+
+    leg = plt.legend(fancybox=True, loc='upper center',prop={'size':Fsize},ncol=1,numpoints=1)
+                     #bbox_to_anchor=(1.25, 1.03))  # add the legend
+    leg.get_frame().set_alpha(0.7)
+    #--------------------------
+
+    if verbose: print '   Saving plot to',plotname
+    plt.savefig(plotname)
+    plt.clf()
+    plt.close('all')
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =

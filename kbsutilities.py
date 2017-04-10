@@ -336,7 +336,9 @@ def magapp2abs(Mapp,zobj,RA,DEC,Av=-99,band='Jbradley2012',cos='WMAP7BAOH0'):
                                                      # correction of about ~0.1 mag or so.
         if isinstance(Mapp,types.FloatType) and Av == -99: # if Av is -99, calculate it
             Av, Ebv = getAv(RA,DEC,band) 
-        Mabs          = Mapp - 5*np.log10(Dlum)+5 + Kcorrection - Av # corrected absolut magnitude of objects
+            Mabs    = Mapp - 5*np.log10(Dlum)+5 + Kcorrection - Av # corrected absolut magnitude of objects
+        else:
+            Mabs    = None
     return Mabs
 #-------------------------------------------------------------------------------------------------------------
 def magabs2app(Mabs,zobj,RA,DEC,Av=-99,band=None,cos='WMAP7BAOH0'):
@@ -368,7 +370,9 @@ def magabs2app(Mabs,zobj,RA,DEC,Av=-99,band=None,cos='WMAP7BAOH0'):
                                                      # correction of about ~0.1 mag or so.
         if isinstance(Mabs,types.FloatType) and Av == -99: # if Av is -99, calculate it
             Av, Ebv = getAv(RA,DEC,band) 
-        Mapp          = Mabs + 5*np.log10(Dlum) - 5 - Kcorrection + Av # corrected absolut magnitude of objects
+            Mapp    = Mabs + 5*np.log10(Dlum) - 5 - Kcorrection + Av # corrected absolut magnitude of objects
+        else:
+            Mapp    = None
     return Mapp
 #-------------------------------------------------------------------------------------------------------------
 def Mabs2L(Mabs,MUVsun=5.5):
@@ -572,7 +576,7 @@ def drawnbinom(n,p,size=1):
     #print 'Took ',time.time()-t0,' sec.'
     return N
 #-------------------------------------------------------------------------------------------------------------
-def appendfitstable(tab1,tab2,newtab='kbs_appendfitstable_results.fits'):
+def appendfitstable(tab1,tab2,newtab='kbs_appendfitstable_results.fits',clobber=False):
     """
     Appending 1 fits table to another.
     It is assumed that the two tables contain the same columns.
@@ -582,9 +586,10 @@ def appendfitstable(tab1,tab2,newtab='kbs_appendfitstable_results.fits'):
 
     Parameters
     ----------
-        tab1 : primariy fits table
-        tab2 : fits table to append to tab1
-        (should contain the same columns)
+        tab1     primariy fits table
+        tab2     fits table to append to tab1
+                 (should contain the same columns as tab1)
+        clobber  overwrite output file if it already exists
 
     Returns
     -------
@@ -611,7 +616,7 @@ def appendfitstable(tab1,tab2,newtab='kbs_appendfitstable_results.fits'):
     for name in t1[1].columns.names:
         hdu.data.field(name)[nrows1:]=t2[1].data.field(name)
 
-    hdu.writeto(newtab,clobber=False)
+    hdu.writeto(newtab,clobber=clobber)
 
     return newtab
 #-------------------------------------------------------------------------------------------------------------
@@ -916,7 +921,7 @@ def crossmatch(ralist,declist,
 def crossmatch2cat(radeccat='/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catalog_candels-cdfs_v0.2.fits',
                    idcol='ID',racol='RA',deccol='DEC',catext=1,
                    matchcat='skelton_goodss',
-                   m_idcol='id',m_racol='ra',m_deccol='dec',m_catext=1,
+                   m_idcol='id',m_racol='ra',m_deccol='dec',m_catext=1,IDstrings=False,
                    writetofile='./kbscrossmatch_defaultname',clobber=False,verbose=True):
     """
 
@@ -934,6 +939,7 @@ def crossmatch2cat(radeccat='/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catal
     m_racol       RA column name in fits rmatchcat
     m_deccol      Dec column name in fits rmatchcat
     m_catext      Fits extension containing catalog data in fits rmatchcat
+    IDstrings     Save IDs as strings as opposed to the default integers
     writetofile   Generate ascii and fits output of crossmatches
                   If writetofile='None' nothing will be written, and the crossmatach will just be returned
     clobber       Overwrite existing output files?
@@ -968,10 +974,17 @@ def crossmatch2cat(radeccat='/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catal
             fout.write('# crossmatched objects in '+radeccat+' to '+matchcat+'\n')
             fout.write('# ID ra dec   ID_match ra_match dec_match r_match_arcsec \n')
             for ii, objid in enumerate(objs_id):
-                objstr  = str("%20i"   % int(objid))     +'  '+\
+                if IDstrings:
+                    IDoutstring       = str("%20s"   % objid)
+                    IDoutstring_match = str("%20s"   % id_match[ii])
+                else:
+                    IDoutstring       = str("%20i"   % int(objid))
+                    IDoutstring_match = str("%20i"   % int(id_match[ii]))
+
+                objstr  = IDoutstring                    +'  '+\
                           str("%16.8f" % objs_ra[ii])    +'  '+\
                           str("%16.8f" % objs_dec[ii])   +'  '+\
-                          str("%20i"   % id_match[ii])   +'  '+\
+                          IDoutstring_match              +'  '+\
                           str("%16.8f" % ra_match[ii])   +'  '+\
                           str("%16.8f" % dec_match[ii])  +'  '+\
                           str("%16.8f" % r_match[ii])
@@ -984,7 +997,14 @@ def crossmatch2cat(radeccat='/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catal
         else:
             if verbose: print ' - Generating '+fitsfile
             fitspath   = kbs.pathAname(asciifile)[0]
-            outputfile = f2a.ascii2fits(asciifile,asciinames=True,skip_header=2,outpath=fitspath,verbose=verbose)
+
+            if IDstrings:
+                ffmt = ['A20','D','D','A20','D','D','D']
+            else:
+                ffmt = ['J','D','D','J','D','D','D']
+
+            outputfile = f2a.ascii2fits(asciifile,asciinames=True,skip_header=2,outpath=fitspath,
+                                        verbose=verbose,fitsformat=ffmt)
 
     return id_match, ra_match, dec_match, r_match
 
@@ -1037,7 +1057,216 @@ def convert_pdf2png(pdffile,res=300,clobber=False,quality='75',resize='100%',ver
         if verbose and cmdout != '':
             print '--> convert output:'
             print cmdout
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def convert_wavelength(lambdainput,version='air2vac',verbose=True):
+    """
+    Converting array of wavelengths either:
+     - from vacuum to air (dry air at 1 atm pressure and 15C with 0.045% CO2 by volume following Morton et al. 2000)
+     - from air to vacuum (following the VALD3 tools http://www.astro.uu.se/valdwiki/Air-to-vacuum%20conversion
+                           solution derived by N. Piskunov)
 
+    input wavelength should be given in Angstrom.
+
+    --- EXAMPLE OF USE ---
+    import kbsutilities as kbs
+    import numpy as np
+    lam_vac  = np.array([1215.670,5008.208])
+    lam_air  = kbs.convert_wavelength(lam_vac,version='vac2air')
+    lam_vac2 = kbs.convert_wavelength(lam_air,version='air2vac')
+
+    """
+    if version == 'air2vac': # expression from  N. Piskunov (http://www.astro.uu.se/valdwiki/Air-to-vacuum%20conversion)
+        s = 10**4 / lambdainput
+        n = 1.0 + 0.00008336624212083 + 0.02408926869968 / (130.1065924522 - s**2) + \
+            0.0001599740894897 / (38.92568793293 - s**2)
+        lambdaout = lambdainput * n
+
+    elif version == 'vac2air': # expression from Morton et al. (2000) ApJS, 130:403
+        s = 10**4 / lambdainput
+        n = 1.0 + 0.0000834254 + 0.02406147 / (130 - s**2) + 0.00015998 / (38.9 - s**2)
+        lambdaout = lambdainput / n
+
+    else:
+        sys.exit('Invalid "version" provided; choose between "air2vac" and "vac2air"')
+
+    return lambdaout
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def velocityoffset2dwave(redshift,voffset,lam_rest,verbose=True):
+    """
+    Converting a velcoity offset into a wavelength difference for a given rest-frame wavelength
+    E.g., what does a 340 km/s velocity offset between Lya and CIII] for a redshift z_Lya=7.733
+    source (Stark et al. 2016) mean for the wavelength shift of CIII] wrt. the wavelength predicted
+    based on the Lya redshift?
+
+    lam_obs, lam_offset, dlam = kbs.velocityoffset2dwave(7.733,340.0,1909.0)
+
+    """
+
+    cc         = 299792.458 # km/s
+    lam_obs    = (redshift + 1.0) * lam_rest
+
+    z_offset   = (voffset * (redshift + 1.0) / cc ) # systemic redshift if redshift = z_lya
+    lam_offset = (redshift - z_offset + 1.0 ) * lam_rest
+
+    dlam       = lam_obs - lam_offset
+
+    if verbose:
+        print ' - For a line at '+str(lam_rest)+'A from a redshift '+str(redshift)+' object '
+        print '   the predicted observed wavelength of the line would be             : ',lam_obs,' A '
+        print ' - Accounting for a velcoity offset of '+str(voffset)+'km/s '
+        print '   the predicted observed wavelength of the line becomes              : ',lam_offset,' A '
+        print '   which corresponds to an expected wavelength shift of the line of   : ',dlam,' A '
+
+    return lam_obs, lam_offset, dlam
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def matplotlib_colornames():
+    """
+    Returning dictionary containg the names and hex values for defined matplotlib colors.
+    Also see: http://matplotlib.org/examples/color/named_colors.html
+    """
+    cnames = {
+    'aliceblue':            '#F0F8FF',
+    'antiquewhite':         '#FAEBD7',
+    'aqua':                 '#00FFFF',
+    'aquamarine':           '#7FFFD4',
+    'azure':                '#F0FFFF',
+    'beige':                '#F5F5DC',
+    'bisque':               '#FFE4C4',
+    'black':                '#000000',
+    'blanchedalmond':       '#FFEBCD',
+    'blue':                 '#0000FF',
+    'blueviolet':           '#8A2BE2',
+    'brown':                '#A52A2A',
+    'burlywood':            '#DEB887',
+    'cadetblue':            '#5F9EA0',
+    'chartreuse':           '#7FFF00',
+    'chocolate':            '#D2691E',
+    'coral':                '#FF7F50',
+    'cornflowerblue':       '#6495ED',
+    'cornsilk':             '#FFF8DC',
+    'crimson':              '#DC143C',
+    'cyan':                 '#00FFFF',
+    'darkblue':             '#00008B',
+    'darkcyan':             '#008B8B',
+    'darkgoldenrod':        '#B8860B',
+    'darkgray':             '#A9A9A9',
+    'darkgreen':            '#006400',
+    'darkkhaki':            '#BDB76B',
+    'darkmagenta':          '#8B008B',
+    'darkolivegreen':       '#556B2F',
+    'darkorange':           '#FF8C00',
+    'darkorchid':           '#9932CC',
+    'darkred':              '#8B0000',
+    'darksalmon':           '#E9967A',
+    'darkseagreen':         '#8FBC8F',
+    'darkslateblue':        '#483D8B',
+    'darkslategray':        '#2F4F4F',
+    'darkturquoise':        '#00CED1',
+    'darkviolet':           '#9400D3',
+    'deeppink':             '#FF1493',
+    'deepskyblue':          '#00BFFF',
+    'dimgray':              '#696969',
+    'dodgerblue':           '#1E90FF',
+    'firebrick':            '#B22222',
+    'floralwhite':          '#FFFAF0',
+    'forestgreen':          '#228B22',
+    'fuchsia':              '#FF00FF',
+    'gainsboro':            '#DCDCDC',
+    'ghostwhite':           '#F8F8FF',
+    'gold':                 '#FFD700',
+    'goldenrod':            '#DAA520',
+    'gray':                 '#808080',
+    'green':                '#008000',
+    'greenyellow':          '#ADFF2F',
+    'honeydew':             '#F0FFF0',
+    'hotpink':              '#FF69B4',
+    'indianred':            '#CD5C5C',
+    'indigo':               '#4B0082',
+    'ivory':                '#FFFFF0',
+    'khaki':                '#F0E68C',
+    'lavender':             '#E6E6FA',
+    'lavenderblush':        '#FFF0F5',
+    'lawngreen':            '#7CFC00',
+    'lemonchiffon':         '#FFFACD',
+    'lightblue':            '#ADD8E6',
+    'lightcoral':           '#F08080',
+    'lightcyan':            '#E0FFFF',
+    'lightgoldenrodyellow': '#FAFAD2',
+    'lightgreen':           '#90EE90',
+    'lightgray':            '#D3D3D3',
+    'lightpink':            '#FFB6C1',
+    'lightsalmon':          '#FFA07A',
+    'lightseagreen':        '#20B2AA',
+    'lightskyblue':         '#87CEFA',
+    'lightslategray':       '#778899',
+    'lightsteelblue':       '#B0C4DE',
+    'lightyellow':          '#FFFFE0',
+    'lime':                 '#00FF00',
+    'limegreen':            '#32CD32',
+    'linen':                '#FAF0E6',
+    'magenta':              '#FF00FF',
+    'maroon':               '#800000',
+    'mediumaquamarine':     '#66CDAA',
+    'mediumblue':           '#0000CD',
+    'mediumorchid':         '#BA55D3',
+    'mediumpurple':         '#9370DB',
+    'mediumseagreen':       '#3CB371',
+    'mediumslateblue':      '#7B68EE',
+    'mediumspringgreen':    '#00FA9A',
+    'mediumturquoise':      '#48D1CC',
+    'mediumvioletred':      '#C71585',
+    'midnightblue':         '#191970',
+    'mintcream':            '#F5FFFA',
+    'mistyrose':            '#FFE4E1',
+    'moccasin':             '#FFE4B5',
+    'navajowhite':          '#FFDEAD',
+    'navy':                 '#000080',
+    'oldlace':              '#FDF5E6',
+    'olive':                '#808000',
+    'olivedrab':            '#6B8E23',
+    'orange':               '#FFA500',
+    'orangered':            '#FF4500',
+    'orchid':               '#DA70D6',
+    'palegoldenrod':        '#EEE8AA',
+    'palegreen':            '#98FB98',
+    'paleturquoise':        '#AFEEEE',
+    'palevioletred':        '#DB7093',
+    'papayawhip':           '#FFEFD5',
+    'peachpuff':            '#FFDAB9',
+    'peru':                 '#CD853F',
+    'pink':                 '#FFC0CB',
+    'plum':                 '#DDA0DD',
+    'powderblue':           '#B0E0E6',
+    'purple':               '#800080',
+    'red':                  '#FF0000',
+    'rosybrown':            '#BC8F8F',
+    'royalblue':            '#4169E1',
+    'saddlebrown':          '#8B4513',
+    'salmon':               '#FA8072',
+    'sandybrown':           '#FAA460',
+    'seagreen':             '#2E8B57',
+    'seashell':             '#FFF5EE',
+    'sienna':               '#A0522D',
+    'silver':               '#C0C0C0',
+    'skyblue':              '#87CEEB',
+    'slateblue':            '#6A5ACD',
+    'slategray':            '#708090',
+    'snow':                 '#FFFAFA',
+    'springgreen':          '#00FF7F',
+    'steelblue':            '#4682B4',
+    'tan':                  '#D2B48C',
+    'teal':                 '#008080',
+    'thistle':              '#D8BFD8',
+    'tomato':               '#FF6347',
+    'turquoise':            '#40E0D0',
+    'violet':               '#EE82EE',
+    'wheat':                '#F5DEB3',
+    'white':                '#FFFFFF',
+    'whitesmoke':           '#F5F5F5',
+    'yellow':               '#FFFF00',
+    'yellowgreen':          '#9ACD32'}
+
+    return cnames
 #-------------------------------------------------------------------------------------------------------------
 #                                                  END
 #-------------------------------------------------------------------------------------------------------------
