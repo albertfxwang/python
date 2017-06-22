@@ -299,7 +299,7 @@ def create_DS9region(outputfile,ralist,declist,color='red',circlesize=0.5,textli
     for rr, ra in enumerate(ralist):
         string = 'circle('+str(ra)+','+str(declist[rr])+','+str(circlesize)+'") # color='+color+' width=3 '
 
-        if textlist != None:
+        if textlist is not None:
             string = string+' font="times 10 bold roman" text={'+textlist[rr]+'}'
 
         fout.write(string+' \n')

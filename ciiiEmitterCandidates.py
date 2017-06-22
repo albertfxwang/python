@@ -785,10 +785,19 @@ def plot_MUSElya(MUSEid,redshift,voffset=0.0,datadir='./spectra_CIIIcandidates/'
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if showsky:
         if verbose: print ' - Getting sky spectra to plot '
-        museinfo = pyfits.open('/Users/kschmidt/work/catalogs/MUSE_GTO/candels_1-24_emline_master_v2.1.fits')[1].data
-        objent   = np.where(museinfo['UNIQUE_ID'] == str(MUSEid))[0]
+        e24 = True
+        if e24:
+            if verbose: print ' - Assuming objects comes from e24'
+            museinfo = pyfits.open('/Users/kschmidt/work/catalogs/MUSE_GTO/candels_1-24_emline_master_v2.1.fits')[1].data
+            objent   = np.where(museinfo['UNIQUE_ID'] == str(MUSEid))[0]
+        else:
+            if verbose: print ' - Assuming objects comes from e36'
+            museinfo = pyfits.open('/Users/kschmidt/work/catalogs/MUSE_GTO/merged_catalog_e36_v1.0.fits')[1].data
+            objent   = np.where(museinfo['ID'] == int(MUSEid))[0]
         if len(objent) != 1:
-            sys.exit(' Found'+str()+' matches to '+str(MUSEid)+' in MUSE info fits file... that is weird!')
+            sys.exit(' Found '+str(len(objent))+' matches to '+str(MUSEid)+' in MUSE info fits file... that is weird!')
+
+
         fieldno  = museinfo['FIELD_ID'][objent]
 
         filename      = glob.glob('/Users/kschmidt/work/MUSE/skyspectra/SKY*cdfs*-'+str("%.2d" % fieldno)+'*av.fits')
@@ -1826,6 +1835,15 @@ def plot_MUSElya(MUSEid,redshift,voffset=0.0,datadir='./spectra_CIIIcandidates/'
     plt.clf()
     plt.close('all')
     if verbose: print ' - Saved figure to ',specfigure
+
+    interactiveplotting = True
+    if interactiveplotting:
+        plt.plot(wave_MUSE, flux_MUSE, '-',alpha=0.8,color='black',lw=5)
+        plt.show()
+
+        array = np.asarray(flux_MUSE.tolist()*500).reshape(500,flux_MUSE.shape[0])
+        plt.imshow(array,cmap='gray'); plt.show()
+
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def plot_lines(voffset,llistdic,wavescale,windowwidth,Fsize,col_linemarker,xrange,yrange,redshift,wavetype,LW):
     """
@@ -1889,6 +1907,12 @@ def plot_MUSElya_forsample(MUSEidlist,redshiftlist,voffsetlist=0.0,outputdir='./
     zlist      = [3.085,4.836]
     cec.plot_MUSElya_forsample(MUSEidlist,zlist,voffsetlist=300.0,outputdir='./testplots160615/')
 
+    import ciiiEmitterCandidates as cec
+    MUSEidlist = [137030059,137035086]
+    zlist      = [0.5236,1.21875]
+    cec.plot_MUSElya_forsample(MUSEidlist,zlist,voffsetlist=300.0,datadir='/Users/kschmidt/work/MUSE/spectra1D/Arche170127/spectra/',outputdir='./')
+
+
     """
     MUSEidlist   = np.asarray(MUSEidlist)
     redshiftlist = np.asarray(redshiftlist)
@@ -1921,9 +1945,9 @@ def plot_MUSElya_forsample(MUSEidlist,redshiftlist,voffsetlist=0.0,outputdir='./
 
         if not skip:
             cec.plot_MUSElya(objID,objz,voffset=voff,plotSN=False,yrangefull=yrangefullflux,outputdir=outputdir,
-                             showsky=True,verbose=False,wavetype=wavetype)
+                             showsky=True,verbose=False,wavetype=wavetype,datadir=datadir)
             cec.plot_MUSElya(objID,objz,voffset=voff,plotSN=True,yrangefull=yrangefullSN,outputdir=outputdir,
-                             verbose=False,wavetype=wavetype)
+                             verbose=False,wavetype=wavetype,datadir=datadir)
 
     if verbose: print '\n - Done...'
 

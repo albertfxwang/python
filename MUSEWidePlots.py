@@ -6,6 +6,7 @@ import kbsutilities as kbs
 import numpy as np
 import MUSEWidePlots as mwp
 import sys
+import matplotlib.pyplot as plt
 import pdb
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def loadcatalogs(verbose=True):
@@ -214,7 +215,7 @@ def gen_DS9regionfile(outputfile_base,circlesize=0.5,width=3,addIDlabel=True,fon
     --- EXAMPLE OF USE ---
     import MUSEWidePlots as mwp
     outbase  = '/Users/kschmidt/work/catalogs/MUSE_GTO//MUSE-Wide_objects'
-    file_cdfs, file_cosmos = mwp.gen_DS9regionfile(outbase,circlesize=1.0,width=3,fontsize=15,addIDlabel=False,clobber=True)
+    file_cdfs, file_cosmos = mwp.gen_DS9regionfile(outbase,circlesize=1.0,width=3,fontsize=15,addIDlabel=True,clobber=True)
 
 
     """
@@ -257,4 +258,89 @@ def gen_DS9regionfile(outputfile_base,circlesize=0.5,width=3,addIDlabel=True,fon
         fout.close()
 
     return outputfile_CDFS, outputfile_COSMOS
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def plot_redshifthistograms(plotname='/Users/kschmidt/work/MUSE/MUSEWide_sourcehistogram.pdf',
+                            zranges=[[0,2.5],[2.5,7]],colors=['black','red'],labels=None,fill=False,
+                            bins=None,xrange=None,ylabel=' ',verbose=True):
+    """
+
+    --- EXAMPLE OF USE ---
+    import MUSEWidePlots as mwp
+    IDs, zs = mwp.plot_redshifthistograms(labels=['Other (H$\\alpha$, [OIII], [OII])','Ly$\\alpha$'],fill=True)
+
+    IDs, zs = mwp.plot_redshifthistograms(zranges=[[2.6,7]],colors=['red'],labels=['Ly$\\alpha$'],fill=True,xrange=[2.6,7])
+
+
+    """
+    if verbose: print ' - Loading source catalogs'
+    IDlist, ra, dec, redshifts = mwp.loadcatalogs(verbose=verbose)
+
+    if verbose: print ' - Setting up and generating histogram of MUSE-Wide sources in \n   '+plotname
+    fig = plt.figure(figsize=(10, 3))
+    fig.subplots_adjust(wspace=0.1, hspace=0.1,left=0.1, right=0.98, bottom=0.2, top=0.95)
+    Fsize    = 15
+    lthick   = 2
+    marksize = 3
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif',size=Fsize)
+    plt.rc('xtick', labelsize=Fsize)
+    plt.rc('ytick', labelsize=Fsize)
+    plt.clf()
+    plt.ioff()
+    #plt.title('M^\star',fontsize=Fsize)
+
+    if xrange is None:
+        xrange = [np.min(redshifts),np.max(redshifts)]
+
+    if bins is None:
+        bin_dz = 0.1
+        bins   = np.arange(np.min(redshifts),np.max(redshifts)+bin_dz,bin_dz)
+
+    outID = []
+    outz  = []
+    for zz, zrange in enumerate(zranges):
+        goodent   = np.where((redshifts > zrange[0]) &(redshifts <= zrange[1]))[0]
+        goodIDs   = IDlist[goodent]
+        goodz     = redshifts[goodent]
+        goodcolor = colors[zz]
+        zmin      = np.min(goodz)
+        zmax      = np.max(goodz)
+        outID.append(goodIDs)
+        outz.append(goodz)
+
+        infostr   = '   Histinfo:'
+        if labels is not None:
+            goodlabel   = labels[zz]
+            infostr     = infostr+'  label = '+goodlabel
+
+        infostr   = infostr+'  zrange = '+str(zrange)+'  Nobj = '+str(len(goodent))+'  color = '+goodcolor+\
+                    '  zmin = '+str("%.5f" % zmin)+'  zmax = '+str("%.5f" % zmax)
+        if verbose: print infostr
+
+        hist = plt.hist(goodz,color=goodcolor,bins=bins,histtype="step",lw=lthick,label=goodlabel,
+                        fill=fill,fc=goodcolor)
+
+    plt.xlim(xrange)
+    # xticksstrings = ['A','B','C','D','E','F']
+    # plt.xticks(xvec, xticksstrings)
+    plt.xlabel(r'redshift', fontsize=Fsize)
+
+    #plt.ylim(yrange)
+    plt.ylabel(ylabel, fontsize=Fsize)
+
+    if labels is not None:
+        #--------- LEGEND ---------
+        anchorpos = (0.5, 1.2)
+        leg = plt.legend(fancybox=True,numpoints=1, loc='upper center',prop={'size':Fsize-3},ncol=len(labels))#,
+                         #bbox_to_anchor=anchorpos)  # add the legend
+        leg.get_frame().set_alpha(0.7)
+        #--------------------------
+
+    if verbose: print '   Saving plot... '
+    plt.savefig(plotname)
+    plt.clf()
+    plt.close('all')
+
+    return outID, outz
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =

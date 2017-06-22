@@ -11,6 +11,7 @@ import kbsutilities as kbs
 import crossmatch as cm
 import MUSE_AOsetup as mao
 from astropy import units
+import collections
 from astropy.vo.client import conesearch
 from astropy.coordinates import ICRS, FK5
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
@@ -604,4 +605,94 @@ def get_extinctions4GLASSclusters(filter='F125W',valreturn='median',radius=1.7/6
         A, EBV, grid = kbs.getAv_area(cldic[key]['ra'],cldic[key]['dec'],radius,stepsize=stepsize,
                                       valreturn=valreturn,filter=filter,verbose=vb_getAv_area)
         if verbose: print ' - The results is A, EBV, grid = ',A,',', EBV,',', grid,','
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def get_extinctions4superGLASSclusters(filter='F125W',valreturn='median',radius=1.7/60.,
+                                       stepsize=[0.6/60.,0.6/60.],clusters='GLASS',verbose=True):
+    """
+
+    Using kbs.getAv_area to get extinction of GLASS clusters
+
+    Avalarr = mao.get_extinctions4superGLASSclusters()
+
+    """
+    cluster_dic = collections.OrderedDict()
+    # cluster_dic['RXJ1532      ']            = {'ra':233.22408,'dec':   30.34964  ,'name':'RXJ1532      '}
+    # cluster_dic['M0429        ']            = {'ra': 67.40042,'dec':   -2.88556  ,'name':'M0429        '}
+    # cluster_dic['A1423        ']            = {'ra':179.32192,'dec':   33.61039  ,'name':'A1423        '}
+    # cluster_dic['M1311        ']            = {'ra':197.75696,'dec':   -3.17764  ,'name':'M1311        '}
+    # cluster_dic['A209         ']            = {'ra': 22.96904,'dec':  -13.61078  ,'name':'A209         '}
+    # cluster_dic['MS2137       ']            = {'ra':325.06325,'dec':  -23.66131  ,'name':'MS2137       '}
+    # cluster_dic['A611         ']            = {'ra':120.23679,'dec':   36.05669  ,'name':'A611         '}
+    # cluster_dic['CL1226       ']            = {'ra':186.74321,'dec':   33.54650  ,'name':'CL1226       '}
+    # cluster_dic['M0329        ']            = {'ra': 52.42367,'dec':   -2.19658  ,'name':'M0329        '}
+    # cluster_dic['RXJ2129      ']            = {'ra':322.41642,'dec':    0.08856  ,'name':'RXJ2129      '}
+    # cluster_dic['M1720        ']            = {'ra':260.07063,'dec':   35.60656  ,'name':'M1720        '}
+    # cluster_dic['M1931        ']            = {'ra':292.95692,'dec':  -26.57611  ,'name':'M1931        '}
+    # cluster_dic['A383         ']            = {'ra': 42.01400,'dec':   -3.52908  ,'name':'A383         '}
+    # cluster_dic['M0647        ']            = {'ra':101.95846,'dec':   70.24714  ,'name':'M0647        '}
+    # cluster_dic['M1206        ']            = {'ra':181.55117,'dec':   -8.80067  ,'name':'M1206        '}
+    # cluster_dic['A2261        ']            = {'ra':260.61354,'dec':   32.13294  ,'name':'A2261        '}
+    # cluster_dic['M1115        ']            = {'ra':168.96688,'dec':    1.49906  ,'name':'M1115        '}
+    # cluster_dic['Bullet       ']            = {'ra':104.65792,'dec':  -55.95000  ,'name':'Bullet       '}
+    # cluster_dic['A1689        ']            = {'ra':197.89250,'dec':   -1.36556  ,'name':'A1689        '}
+    # cluster_dic['cl1232.5-1250']            = {'ra':188.12708,'dec':  -12.84333  ,'name':'cl1232.5-1250'}
+    # cluster_dic['cl1216.8-1201']            = {'ra':184.18792,'dec':  -12.02167  ,'name':'cl1216.8-1201'}
+    # cluster_dic['cl1138.2-1133']            = {'ra':174.54292,'dec':  -11.56056  ,'name':'cl1138.2-1133'}
+    # cluster_dic['cl1354.2-1230']            = {'ra':208.54042,'dec':  -12.51694  ,'name':'cl1354.2-1230'}
+    # cluster_dic['cl1054.4-1146']            = {'ra':163.60208,'dec':  -11.77222  ,'name':'cl1054.4-1146'}
+    # cluster_dic['cl1227.9-1138']            = {'ra':186.99542,'dec':  -11.58694  ,'name':'cl1227.9-1138'}
+    # cluster_dic['cl1054.7-1245']            = {'ra':163.68167,'dec':  -12.76444  ,'name':'cl1054.7-1245'}
+    # cluster_dic['cl1040.7-1155']            = {'ra':160.16833,'dec':  -11.93444  ,'name':'cl1040.7-1155'}
+    cluster_dic['SDSSJ0004-0103']           = {'ra':1.216458	,'dec':-1.054389  ,'name':'SDSSJ0004-0103'}
+    cluster_dic['SDSSJ0108+0623']           = {'ra':17.175000	,'dec':6.412222   ,'name':'SDSSJ0108+0623'}
+    cluster_dic['SDSSJ0150+2725']           = {'ra':27.504167	,'dec':27.426667  ,'name':'SDSSJ0150+2725'}
+    cluster_dic['SDSSJ0146-0929']           = {'ra':26.733333	,'dec':-9.497778  ,'name':'SDSSJ0146-0929'}
+    cluster_dic['SDSSJ0333-0651']           = {'ra':53.270833	,'dec':-6.856111  ,'name':'SDSSJ0333-0651'}
+    cluster_dic['SDSSJ0851+3331']           = {'ra':132.912500	,'dec':33.519722  ,'name':'SDSSJ0851+3331'}
+    cluster_dic['SDSSJ1110+6459']           = {'ra':167.575000	,'dec':64.996389  ,'name':'SDSSJ1110+6459'}
+    cluster_dic['SDSSJ1209+2640']           = {'ra':182.350000	,'dec':26.679722  ,'name':'SDSSJ1209+2640'}
+    cluster_dic['SDSSJ0915:3826']           = {'ra':138.912500	,'dec':38.449722  ,'name':'SDSSJ0915:3826'}
+    cluster_dic['SDSSJ0928+2031']           = {'ra':142.025000	,'dec':20.523889  ,'name':'SDSSJ0928+2031'}
+    cluster_dic['SDSSJ0952+3434']           = {'ra':148.166667	,'dec':34.579722  ,'name':'SDSSJ0952+3434'}
+    cluster_dic['SDSSJ0957+0509']           = {'ra':149.412500	,'dec':5.158889   ,'name':'SDSSJ0957+0509'}
+    cluster_dic['SDSSJ1002+2031']           = {'ra':150.612500	,'dec':20.517500  ,'name':'SDSSJ1002+2031'}
+    cluster_dic['SDSSJ1038+4849']           = {'ra':159.679167	,'dec':48.821944  ,'name':'SDSSJ1038+4849'}
+    cluster_dic['SDSSJ1050+0017']           = {'ra':162.666667	,'dec':0.285278   ,'name':'SDSSJ1050+0017'}
+    cluster_dic['SDSSJ1055+5547']           = {'ra':163.770833	,'dec':55.806389  ,'name':'SDSSJ1055+5547'}
+    cluster_dic['SDSSJ1115+1645']           = {'ra':168.766667	,'dec':16.760556  ,'name':'SDSSJ1115+1645'}
+    cluster_dic['SDSSJ1336-0331']           = {'ra':204.000000	,'dec':-3.524722  ,'name':'SDSSJ1336-0331'}
+    cluster_dic['SDSSJ1138+2754']           = {'ra':174.537500	,'dec':27.908611  ,'name':'SDSSJ1138+2754'}
+    cluster_dic['SDSSJ1152+0939']           = {'ra':178.195833	,'dec':9.504167   ,'name':'SDSSJ1152+0939'}
+    cluster_dic['SDSSJ1152+3312']           = {'ra':178.000000	,'dec':33.228333  ,'name':'SDSSJ1152+3312'}
+    cluster_dic['SDSSJ1156+1911']           = {'ra':179.025000	,'dec':19.186944  ,'name':'SDSSJ1156+1911'}
+    cluster_dic['SDSSJ1207+5254']           = {'ra':181.900000	,'dec':52.916111  ,'name':'SDSSJ1207+5254'}
+    cluster_dic['SDSSJ1632+3500']           = {'ra':248.041667	,'dec':35.008333  ,'name':'SDSSJ1632+3500'}
+    cluster_dic['SDSSJ1522+2535']           = {'ra':230.720833	,'dec':25.594167  ,'name':'SDSSJ1522+2535'}
+    cluster_dic['SDSSJ1329+2243']           = {'ra':202.391667	,'dec':22.716667  ,'name':'SDSSJ1329+2243'}
+    cluster_dic['SDSSJ1343+4155']           = {'ra':205.891667	,'dec':41.910000  ,'name':'SDSSJ1343+4155'}
+    cluster_dic['SDSSJ1420+3955']           = {'ra':215.162500	,'dec':39.918056  ,'name':'SDSSJ1420+3955'}
+    cluster_dic['SDSSJ1439+1208']           = {'ra':219.791667	,'dec':12.140278  ,'name':'SDSSJ1439+1208'}
+    cluster_dic['SDSSJ1456+5702']           = {'ra':224.004167	,'dec':57.039167  ,'name':'SDSSJ1456+5702'}
+    cluster_dic['SDSSJ1527+0652']           = {'ra':231.937500	,'dec':6.875556   ,'name':'SDSSJ1527+0652'}
+    cluster_dic['SDSSJ1531+3414']           = {'ra':232.795833	,'dec':34.240278  ,'name':'SDSSJ1531+3414'}
+    cluster_dic['SDSSJ1621+0607']           = {'ra':245.383333	,'dec':6.122222   ,'name':'SDSSJ1621+0607'}
+    cluster_dic['SDSSJ1723+3411']           = {'ra':260.900000	,'dec':34.199722  ,'name':'SDSSJ1723+3411'}
+    cluster_dic['SDSSJ2111-0114']           = {'ra':317.829167	,'dec':-1.244444  ,'name':'SDSSJ2111-0114'}
+    cluster_dic['SDSSJ2243-0935']           = {'ra':340.845833	,'dec':-9.589167  ,'name':'SDSSJ2243-0935'}
+    cluster_dic['SDSSJ1604+2244']           = {'ra':241.041667	,'dec':22.738056  ,'name':'SDSSJ1604+2244'}
+
+
+    Avalarr = np.zeros([len(cluster_dic.keys()),3])
+    for kk, key in enumerate(cluster_dic.keys()):
+        if verbose: print ' ---------------- Get extinction for '+cluster_dic[key]['name']+' ----------------'
+        if verbose == 'Full':
+            vb_getAv_area = True
+        else:
+            vb_getAv_area = False
+        A, EBV, grid = kbs.getAv_area(cluster_dic[key]['ra'],cluster_dic[key]['dec'],radius,stepsize=stepsize,
+                                      valreturn=valreturn,filter=filter,verbose=vb_getAv_area)
+        Avalarr[kk,:] = A, EBV, grid
+        if verbose: print ' - The results is A, EBV, grid = ',A,',', EBV,',', grid,','
+
+    return Avalarr
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
